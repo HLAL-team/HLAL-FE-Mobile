@@ -52,21 +52,34 @@ export default function SignUpScreen() {
           </View>
         </ScrollView>
 
-        {/* Fixed bottom section */}
-        <View style={styles.footer}>
-          <CheckboxWithText checked={agree} onPress={() => setAgree(!agree)} />
-          <PrimaryButton label="Sign Up" onPress={handleSubmit} />
-          <Text style={{ color: '#444', alignItems: 'center', textAlign: 'center', marginBottom: 16 }}>
-            Already have an account?{' '}
-            <Text
-              onPress={() => router.push('/login')}
-              style={{ color: PRIMARY_COLOR, fontWeight: '600' }}
-            >
-              Log In
-            </Text>
-          </Text>
-        </View>
-      </View>
+  {/* Fixed bottom section */}
+  <View style={styles.footer}>
+    <CheckboxWithText checked={agree} onPress={() => setAgree(!agree)} />
+
+    <PrimaryButton
+      label="Sign Up"
+      onPress={() => {
+        if (agree) {
+          handleSubmit();
+          router.push('(tabs)/home');
+        } else {
+          alert('Please agree to the Terms & Conditions.');
+        }
+      }}
+    />
+
+    <Text style={{ color: '#444', alignItems: 'center', textAlign: 'center', marginBottom: 16 }}>
+      Already have an account?{' '}
+      <Text
+        onPress={() => router.push('/login')}
+        style={{ color: PRIMARY_COLOR, fontWeight: '600' }}
+      >
+        Log In
+      </Text>
+    </Text>
+  </View>
+  
+          </View>
 
     </KeyboardAvoidingView>
   );
