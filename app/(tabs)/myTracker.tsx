@@ -1,16 +1,20 @@
-import { View, Text } from 'react-native'
-import React from 'react'
+import { View, Text } from "react-native";
+import React from "react";
+import TransactionList from "@/components/MyTracker/Transaction";
+import { Header } from "react-native/Libraries/NewAppScreen";
+import Transaction from "@/components/MyTracker/Transaction";
+import IncomeOutcomeChart from "@/components/MyTracker/IncomeOutcomeChart";
 
 const myTracker = () => {
   return (
     <View>
-      <Text>myTracker</Text>
+      <IncomeOutcomeChart />
+      <Transaction />
     </View>
-  )
-}
+  );
+};
 
-export default myTracker
-
+export default myTracker;
 
 // import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native'
 // import React, { useState, useEffect } from 'react'
@@ -33,7 +37,7 @@ export default myTracker
 //   const [month, setMonth] = useState('1');
 //   const [quarter, setQuarter] = useState('1');
 //   const [week, setWeek] = useState('1');
-  
+
 //   const years = [
 //     { key: '2023', value: '2023' },
 //     { key: '2024', value: '2024' },
@@ -72,7 +76,7 @@ export default myTracker
 //     setLoading(true);
 //     try {
 //       let url = `http://localhost:8080/api/transactions/range?type=${timeRange}&year=${year}`;
-      
+
 //       if (timeRange === 'month') {
 //         url += `&month=${month}`;
 //       } else if (timeRange === 'quarter') {
@@ -80,7 +84,7 @@ export default myTracker
 //       } else if (timeRange === 'week') {
 //         url += `&month=${month}&week=${week}`;
 //       }
-      
+
 //       const response = await axios.get(url);
 //       setData(response.data.data);
 //     } catch (error) {
@@ -97,12 +101,12 @@ export default myTracker
 //     const groupedData: Record<string, number> = {};
 //     const incomeData: Record<string, number> = {};
 //     const outcomeData: Record<string, number> = {};
-    
+
 //     data.forEach(transaction => {
 //       let groupKey;
 //       const amount = transaction.amount;
 //       const isIncome = transaction.transactionType === "Top Up";
-      
+
 //       if (timeRange === 'week') {
 //         // Group by day for weekly view
 //         groupKey = new Date(transaction.transactionDate).toLocaleDateString('en-US', { day: 'numeric' });
@@ -115,19 +119,19 @@ export default myTracker
 //         // Group by month for quarterly view
 //         groupKey = new Date(transaction.transactionDate).toLocaleDateString('en-US', { month: 'short' });
 //       }
-      
+
 //       if (!incomeData[groupKey]) incomeData[groupKey] = 0;
 //       if (!outcomeData[groupKey]) outcomeData[groupKey] = 0;
-      
+
 //       if (isIncome) {
 //         incomeData[groupKey] += amount;
 //       } else {
 //         outcomeData[groupKey] += amount;
 //       }
 //     });
-    
+
 //     const labels = Object.keys(isTimeRangeWeek() ? incomeData : outcomeData);
-    
+
 //     return {
 //       labels,
 //       datasets: [
@@ -155,7 +159,7 @@ export default myTracker
 //   return (
 //     <ScrollView style={styles.container}>
 //       <Text style={styles.header}>Transaction Tracker</Text>
-      
+
 //       <View style={styles.filterContainer}>
 //         <Text style={styles.label}>Time Range</Text>
 //         <SelectList
@@ -165,7 +169,7 @@ export default myTracker
 //           save="key"
 //           boxStyles={styles.dropdown}
 //         />
-        
+
 //         <Text style={styles.label}>Year</Text>
 //         <SelectList
 //           setSelected={setYear}
@@ -174,7 +178,7 @@ export default myTracker
 //           save="key"
 //           boxStyles={styles.dropdown}
 //         />
-        
+
 //         {isTimeRangeQuarter() && (
 //           <>
 //             <Text style={styles.label}>Quarter</Text>
@@ -187,7 +191,7 @@ export default myTracker
 //             />
 //           </>
 //         )}
-        
+
 //         {(isTimeRangeMonth() || isTimeRangeWeek()) && (
 //           <>
 //             <Text style={styles.label}>Month</Text>
@@ -200,7 +204,7 @@ export default myTracker
 //             />
 //           </>
 //         )}
-        
+
 //         {isTimeRangeWeek() && (
 //           <>
 //             <Text style={styles.label}>Week</Text>
@@ -214,7 +218,7 @@ export default myTracker
 //           </>
 //         )}
 //       </View>
-      
+
 //       {loading ? (
 //         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
 //       ) : chartData ? (

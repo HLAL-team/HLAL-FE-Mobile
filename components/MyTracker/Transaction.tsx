@@ -1,0 +1,108 @@
+import React from "react";
+import { View, Text, StyleSheet, FlatList } from "react-native";
+
+const transactions = [
+  {
+    id: 1,
+    name: "Budi Subianto",
+    time: "Today, 10:20 AM",
+    amount: 150000,
+    type: "income",
+  },
+  {
+    id: 2,
+    name: "Andi Pramono",
+    time: "Today, 09:45 AM",
+    amount: 75000,
+    type: "outcome",
+  },
+  {
+    id: 3,
+    name: "Siti Jubaedah",
+    time: "Yesterday, 04:30 PM",
+    amount: 200000,
+    type: "income",
+  },
+  {
+    id: 4,
+    name: "Rudi Hartono",
+    time: "Yesterday, 01:15 PM",
+    amount: 50000,
+    type: "outcome",
+  },
+  {
+    id: 5,
+    name: "Dewi Lestari",
+    time: "Monday, 03:00 PM",
+    amount: 100000,
+    type: "income",
+  },
+];
+
+export default function Transaction() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Transactions History</Text>
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.transaction}>
+            <View style={styles.textContainer}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.time}>{item.time}</Text>
+            </View>
+            <Text
+              style={[
+                styles.amount,
+                { color: item.type === "income" ? "green" : "red" },
+              ]}
+            >
+              {item.type === "income" ? "+" : "-"}Rp{" "}
+              {item.amount.toLocaleString("id-ID")}
+            </Text>
+          </View>
+        )}
+        scrollEnabled={false} // Disable scrolling since we only show 3 items
+        style={styles.list}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginTop: 24,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  list: {
+    paddingBottom: 4,
+  },
+  transaction: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomColor: "#eee",
+    borderBottomWidth: 1,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  time: {
+    fontSize: 11,
+    color: "#888",
+  },
+  amount: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
