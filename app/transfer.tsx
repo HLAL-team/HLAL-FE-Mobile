@@ -1,7 +1,8 @@
-import FavoriteList from '@/components/Home/FavoriteList';
-import FavoriteList2 from '@/components/Home/FavoriteList2';
+// app/transfer.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { useRouter } from 'expo-router';
+import FavoriteList2 from '@/components/Home/FavoriteList2';
 
 const primaryColor = '#19918F';
 
@@ -10,13 +11,23 @@ export default function Transfer() {
     const [amount, setAmount] = useState('');
     const [notes, setNotes] = useState('');
     const balance = 10000000; // Example balance
+    const router = useRouter();
 
     const handleTransfer = () => {
         if (!toAccount || !amount) {
             alert('Please fill all required fields');
             return;
         }
-        alert(`Transfer of Rp ${Number(amount).toLocaleString()} to ${toAccount} initiated`);
+
+        // Navigate to the Transfer Confirmation page with params
+        router.push({
+            pathname: '/confirmationTransfer',
+            params: {
+              recipient: toAccount,
+              amount,
+              notes,
+            },
+          });
     };
 
     return (
@@ -58,7 +69,7 @@ export default function Transfer() {
                 
                 <View style={styles.balanceContainer}>
                     <Text style={styles.balanceLabel}>Balance</Text>
-                    <Text style={styles.balanceAmount}>IDR {balance.toLocaleString()}</Text>
+                    <Text style={styles.balanceAmount}>Rp {balance.toLocaleString()}</Text>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -71,7 +82,6 @@ export default function Transfer() {
                         onChangeText={setNotes}
                     />
                 </View>
-
                 <FavoriteList2 />
             </ScrollView>
             
@@ -115,7 +125,6 @@ const styles = StyleSheet.create({
     recipientContainer: {
         marginBottom: 25,
         marginTop: 30,
-        //backgroundColor: 'red',
     },
     label: {
         fontSize: 14,
@@ -128,14 +137,6 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         padding: 14,
         fontSize: 16
-    },
-    amountInput: {
-        fontSize: 36,
-        borderBottomColor: '#e0e0e0',
-        borderBottomWidth: 1,
-        marginBottom: 8,
-        paddingVertical: 8,
-        marginTop: 40,
     },
     balanceContainer: {
         flexDirection: 'row',
