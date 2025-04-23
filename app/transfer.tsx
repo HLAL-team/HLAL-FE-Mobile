@@ -1,4 +1,5 @@
 import FavoriteList from '@/components/Home/FavoriteList';
+import FavoriteList2 from '@/components/Home/FavoriteList2';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 
@@ -26,22 +27,34 @@ export default function Transfer() {
             
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 <View style={styles.recipientContainer}>
+                    <Text style={styles.label}>Recipient Account</Text>
                     <TextInput
                         style={styles.recipientInput}
-                        placeholder="To..."
+                        placeholder="Enter recipient account number"
                         keyboardType="numeric"
                         value={toAccount}
                         onChangeText={setToAccount}
+                        maxLength={16}
                     />
                 </View>
-
-                <TextInput
-                    style={styles.amountInput}
-                    placeholder="Enter amount"
-                    keyboardType="numeric"
-                    value={amount}
-                    onChangeText={setAmount}
-                />
+                <View style={{ marginBottom: 25 }}>
+                    <Text style={{ fontSize: 14, color: '#666', marginRight: 8, position: 'absolute', top: 48, left: 0, zIndex: 1 }}>Rp</Text>
+                    <TextInput
+                        style={{ 
+                            fontSize: 36, 
+                            borderBottomColor: '#e0e0e0',
+                            borderBottomWidth: 1, 
+                            marginBottom: 8, 
+                            paddingVertical: 8, 
+                            marginTop: 40,
+                            paddingLeft: 30
+                        }}
+                        placeholder="Enter amount"
+                        keyboardType="numeric"
+                        value={amount}
+                        onChangeText={setAmount}
+                    />
+                </View>
                 
                 <View style={styles.balanceContainer}>
                     <Text style={styles.balanceLabel}>Balance</Text>
@@ -59,7 +72,7 @@ export default function Transfer() {
                     />
                 </View>
 
-                <FavoriteList />
+                <FavoriteList2 />
             </ScrollView>
             
             <View style={styles.buttonContainer}>
@@ -110,11 +123,11 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     recipientInput: {
-        backgroundColor: primaryColor,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
         borderRadius: 6,
         padding: 14,
-        fontSize: 16,
-        color: '#fff',
+        fontSize: 16
     },
     amountInput: {
         fontSize: 36,
@@ -127,7 +140,8 @@ const styles = StyleSheet.create({
     balanceContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 30,
+        marginBottom: 20,
+        marginTop: 10,
     },
     balanceLabel: {
         fontSize: 14,
@@ -143,7 +157,7 @@ const styles = StyleSheet.create({
         marginTop: 50,
     },
     notesInput: {
-        height: 80,
+        height: 100,
         backgroundColor: '#f5f5f5',
         borderRadius: 6,
         padding: 10,

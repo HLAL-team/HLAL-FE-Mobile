@@ -34,16 +34,16 @@ export default function TopupTransferButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: "48%",
+    width: '48%',
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#000",
+    fontWeight: '600',
+    color: '#000',
     marginTop: 8,
   },
 });

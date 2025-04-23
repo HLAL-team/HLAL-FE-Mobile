@@ -71,39 +71,38 @@ export default function RecentTransactionList() {
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: 16, // Reduced margin for compactness
-        flex: 1,
+      marginTop: 24,
     },
     title: {
-        marginTop: 10,
-        fontSize: 16,
-        fontWeight: "600",
-        marginBottom: 8,
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 12,
     },
     list: {
-        maxHeight: 150, // Adjusted height for 3 items
+      paddingBottom: 4,
     },
     transaction: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 6, // Reduced padding for compactness
-        borderBottomColor: "#eee",
-        borderBottomWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomColor: '#eee',
+      borderBottomWidth: 1,
     },
     textContainer: {
-        flex: 1,
+      flex: 1,
     },
     name: {
-        fontSize: 12, // Reduced font size for compactness
-        fontWeight: "500",
+      fontSize: 14,
+      fontWeight: '500',
     },
     time: {
-        fontSize: 10, // Reduced font size for compactness
-        color: "#888",
+      fontSize: 11,
+      color: '#888',
     },
     amount: {
-        fontSize: 12, // Reduced font size for compactness
-        fontWeight: "600",
+      fontSize: 14,
+      fontWeight: '600',
     },
-});
+  });
+  

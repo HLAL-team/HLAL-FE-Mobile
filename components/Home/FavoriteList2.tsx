@@ -4,10 +4,8 @@ import {
   Text,
   StyleSheet,
   Image,
-  FlatList,
   TouchableOpacity,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
 
 const dummyFavorites = [
   {
@@ -48,18 +46,19 @@ const dummyFavorites = [
   },
 ];
 
-export default function FavoriteList() {
+export default function FavoriteList2() {
+  // Only take the first 6 items (for 3x2 grid)
+  const displayFavorites = dummyFavorites.slice(0, 6);
+  
   return (
     <View style={{ marginTop: 24 }}>
       <Text style={styles.title}>Favorite Transfers</Text>
-      <FlatList
-        data={dummyFavorites}
-        keyExtractor={(item) => item.favoriteUserId.toString()}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingLeft: 4, paddingRight: 12 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+      <View style={styles.gridContainer}>
+        {displayFavorites.map((item) => (
+          <TouchableOpacity 
+            key={item.favoriteUserId.toString()}
+            style={styles.card}
+          >
             <Image source={{ uri: item.imageUrl }} style={styles.avatar} />
             <View style={styles.textContainer}>
               <Text style={styles.name} numberOfLines={1}>
@@ -69,10 +68,9 @@ export default function FavoriteList() {
                 {item.favoritePhoneNumber}
               </Text>
             </View>
-            <Feather name="send" size={16} color="#19918F" style={styles.icon} />
           </TouchableOpacity>
-        )}
-      />
+        ))}
+      </View>
     </View>
   );
 }
@@ -80,37 +78,38 @@ export default function FavoriteList() {
 const styles = StyleSheet.create({
   title: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
   },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
   card: {
-    width: 100,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginRight: 12,
+    width: '32%',
+    marginBottom: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: 4,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
   },
   textContainer: {
-    alignItems: 'center',
-    marginTop: 6,
+    flex: 1,
   },
   name: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: "500",
   },
   phone: {
-    fontSize: 11,
-    color: '#888',
-    marginTop: 2,
-  },
-  icon: {
-    marginTop: 6,
+    fontSize: 10,
+    color: "#888",
   },
 });

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import React, { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PRIMARY_COLOR, SECONDARY_COLOR } from '@/constants/colors';
+import { PRIMARY_COLOR } from '@/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function BalanceCard() {
@@ -11,10 +11,6 @@ export default function BalanceCard() {
   const accountNumber = '7060 4487 1';
   const balance = 'Rp 1.500.000';
 
-  const toggleVisibility = () => {
-    setIsVisible(!isVisible);
-  };
-
   return (
     <LinearGradient
       colors={['#22DEB8', PRIMARY_COLOR]}
@@ -22,14 +18,14 @@ export default function BalanceCard() {
       start={{ x: 0.9, y: 1 }}
       end={{ x: 0, y: 0 }}
     >
-      <View style={styles.topSection}>
+      <View style={styles.row}>
         <View>
-          <Text style={styles.fullName}>{fullName}</Text>
-          <Text style={styles.accountNumber}>
+          <Text style={styles.name}>{fullName}</Text>
+          <Text style={styles.account}>
             {isVisible ? accountNumber : '•••• •••• •••'}
           </Text>
         </View>
-        <TouchableOpacity onPress={toggleVisibility}>
+        <TouchableOpacity onPress={() => setIsVisible(!isVisible)}>
           <Ionicons
             name={isVisible ? 'eye-outline' : 'eye-off-outline'}
             size={24}
@@ -38,11 +34,9 @@ export default function BalanceCard() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.bottomSection}>
-        <Text style={styles.balanceLabel}>Your Balance</Text>
-        <Text style={styles.balance}>
-          {isVisible ? balance : 'Rp ••••••••'}
-        </Text>
+      <View>
+        <Text style={styles.label}>Your Balance</Text>
+        <Text style={styles.balance}>{isVisible ? balance : 'Rp ••••••••'}</Text>
       </View>
     </LinearGradient>
   );
@@ -52,36 +46,35 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
     padding: 20,
-    marginVertical: 16,
-    elevation: 4,
+    marginVertical: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
+    elevation: 3,
   },
-  topSection: {
-    marginBottom: 24,
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  fullName: {
+  name: {
     fontSize: 14,
     color: '#fff',
   },
-  accountNumber: {
-    fontSize: 20,
-    fontWeight: '600',
+  account: {
+    fontSize: 18,
     color: '#fff',
-    marginTop: 4,
+    fontWeight: '600',
+    marginTop: 6,
   },
-  bottomSection: {},
-  balanceLabel: {
+  label: {
     fontSize: 14,
     color: '#eee',
   },
   balance: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#fff',
     marginTop: 4,

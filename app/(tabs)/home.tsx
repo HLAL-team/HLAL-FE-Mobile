@@ -37,13 +37,14 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 25,
+    padding: 20,
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
   buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
   },
 });
+

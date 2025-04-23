@@ -5,8 +5,8 @@ import { Picker } from '@react-native-picker/picker';
 
 const primaryColor = '#19918F';
 
-const topupNominals = [20000, 50000, 100000, 200000];
-const sourceOptions = ["Hasanah Card", "BSI", "Alfamart", "Indomart"];
+const topupNominals = [20000, 50000, 100000, 200000, 300000, 500000];
+const sourceOptions = ["Hasanah Card", "BSI"];
 
 export default function TopupPage() {
     const [amount, setAmount] = useState('');
@@ -29,13 +29,16 @@ export default function TopupPage() {
             </View>
             
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <TextInput
-                    style={styles.amountInput}
-                    placeholder="Enter amount"
-                    keyboardType="numeric"
-                    value={amount}
-                    onChangeText={setAmount}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 50, marginRight: 5 }}>Rp</Text>
+                    <TextInput
+                        style={[styles.amountInput, { flex: 1 }]}
+                        placeholder="Enter amount"
+                        keyboardType="numeric"
+                        value={amount}
+                        onChangeText={setAmount}
+                    />
+                </View>
 
                 <View style={styles.nominalContainer}>
                     {topupNominals.map((item) => (
@@ -118,7 +121,7 @@ const styles = StyleSheet.create({
         color: primaryColor,
     },
     amountInput: {
-        fontSize: 36,
+        fontSize: 50,
         borderBottomColor: '#e0e0e0',
         borderBottomWidth: 1,
         marginBottom: 16,
@@ -151,6 +154,7 @@ const styles = StyleSheet.create({
     },
     inputGroup: {
         marginBottom: 30,
+        
     },
     label: {
         fontSize: 14,
@@ -158,13 +162,13 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     picker: {
-        height: 40,
+        height: 50,
         backgroundColor: '#f5f5f5',
         borderRadius: 6,
         borderWidth: 0,
     },
     notesInput: {
-        height: 80,
+        height: 100,
         backgroundColor: '#f5f5f5',
         borderRadius: 6,
         padding: 10,

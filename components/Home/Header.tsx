@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
     gap: 12,
   },
   avatar: {
