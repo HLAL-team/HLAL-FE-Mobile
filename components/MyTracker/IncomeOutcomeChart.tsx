@@ -2,47 +2,183 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { PRIMARY_COLOR } from '@/constants/colors';
+const jsonData = require('./data.json');
 
 const FinancialChart = () => {
   const [selectedType, setSelectedType] = useState<'daily' | 'weekly' | 'monthly' | 'quarterly'>('monthly');
 
-  const rawMockData = {
-    daily: [
-      { label: '1-7', topUp: 20000, transfer: 15000 },
-      { label: '8-14', topUp: 40000, transfer: 18000 },
-      { label: '15-21', topUp: 30000, transfer: 25000 },
-      { label: '22-31', topUp: 45000, transfer: 27000 },
-    ],
-    weekly: [
-      { label: 'W1', topUp: 120000, transfer: 90000 },
-      { label: 'W2', topUp: 100000, transfer: 75000 },
-      { label: 'W3', topUp: 95000, transfer: 70000 },
-      { label: 'W4', topUp: 110000, transfer: 82000 },
-    ],
-    monthly: [
-      { label: 'Jan', topUp: 50000, transfer: 30000 },
-      { label: 'Feb', topUp: 75000, transfer: 42000 },
-      { label: 'Mar', topUp: 100000, transfer: 50000 },
-      { label: 'Apr', topUp: 120000, transfer: 40000 },
-      { label: 'May', topUp: 87000, transfer: 55000 },
-      { label: 'Jun', topUp: 95000, transfer: 48000 },
-      { label: 'Jul', topUp: 110000, transfer: 62000 },
-      { label: 'Aug', topUp: 103000, transfer: 57000 },
-      { label: 'Sep', topUp: 98000, transfer: 63000 },
-      { label: 'Oct', topUp: 102000, transfer: 60000 },
-      { label: 'Nov', topUp: 93000, transfer: 47000 },
-      { label: 'Dec', topUp: 115000, transfer: 52000 },
-    ],
-    quarterly: [
-      { label: 'Q1', topUp: 225000, transfer: 122000 },
-      { label: 'Q2', topUp: 302000, transfer: 143000 },
-      { label: 'Q3', topUp: 311000, transfer: 177000 },
-      { label: 'Q4', topUp: 310000, transfer: 159000 },
-    ],
+  function getCustomWeek(date: Date): string {
+    const day = date.getDate();
+
+    if (day >= 1 && day <= 7) {
+      return 'week1';
+    } else if (day >= 8 && day <= 14) {
+      return 'week2';
+    } else if (day >= 15 && day <= 21) {
+      return 'week3';
+    } else {
+      return 'week4';
+    }
+  }
+
+  const aggregateByWeek = (transactions: Transaction[]): Record<string, { income: number; outcome: number }> => {
+    const result: Record<string, { income: number; outcome: number }> = {
+      week1: { income: 0, outcome: 0 },
+      week2: { income: 0, outcome: 0 },
+      week3: { income: 0, outcome: 0 },
+      week4: { income: 0, outcome: 0 },
+    };
+
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.transactionDate);
+      const weekNumber = getCustomWeek(date);
+
+      if (transaction.transactionType === 'Top Up') {
+        result[weekNumber].income += transaction.amount;
+      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
+        result[weekNumber].outcome += transaction.amount;
+      }
+    });
+
+    return result;
   };
 
+  interface Transaction {
+    transactionDate: string;
+    transactionType: string;
+    amount: number;
+  }
+
+  interface DailyAggregate {
+    [day: string]: { income: number; outcome: number };
+  }
+
+  const aggregateByDay = (transactions: Transaction[]): DailyAggregate => {
+    const result: DailyAggregate = {};
+
+    for (let i = 1; i <= 31; i++) {
+      result[i.toString()] = { income: 0, outcome: 0 };
+    }
+
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.transactionDate);
+      const day = date.getDate().toString();
+
+      if (transaction.transactionType === 'Top Up') {
+        result[day].income += transaction.amount;
+      } else if (transaction.transactionType === 'Transfer') {
+        result[day].outcome += transaction.amount;
+      }
+    });
+
+    return result;
+  };
+
+  interface QuarterlyAggregate {
+    [quarter: string]: { income: number; outcome: number };
+  }
+
+  const aggregateByQuarter = (transactions: Transaction[]): QuarterlyAggregate => {
+    const result: QuarterlyAggregate = {
+      Q1: { income: 0, outcome: 0 },
+      Q2: { income: 0, outcome: 0 },
+      Q3: { income: 0, outcome: 0 },
+      Q4: { income: 0, outcome: 0 },
+    };
+
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.transactionDate);
+      const month = date.getMonth();
+
+      let quarter: keyof QuarterlyAggregate;
+      if (month >= 0 && month <= 2) {
+        quarter = 'Q1';
+      } else if (month >= 3 && month <= 5) {
+        quarter = 'Q2';
+      } else if (month >= 6 && month <= 8) {
+        quarter = 'Q3';
+      } else {
+        quarter = 'Q4';
+      }
+
+      if (transaction.transactionType === 'Top Up') {
+        result[quarter].income += transaction.amount;
+      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
+        result[quarter].outcome += transaction.amount;
+      }
+    });
+
+    return result;
+  };
+
+  interface MonthlyAggregate {
+    [month: string]: { income: number; outcome: number };
+  }
+
+  const aggregateByMonth = (transactions: Transaction[]): MonthlyAggregate => {
+    const result: MonthlyAggregate = {
+      '1': { income: 0, outcome: 0 },
+      '2': { income: 0, outcome: 0 },
+      '3': { income: 0, outcome: 0 },
+      '4': { income: 0, outcome: 0 },
+      '5': { income: 0, outcome: 0 },
+      '6': { income: 0, outcome: 0 },
+      '7': { income: 0, outcome: 0 },
+      '8': { income: 0, outcome: 0 },
+      '9': { income: 0, outcome: 0 },
+      '10': { income: 0, outcome: 0 },
+      '11': { income: 0, outcome: 0 },
+      '12': { income: 0, outcome: 0 },
+    };
+
+    transactions.forEach((transaction) => {
+      const date = new Date(transaction.transactionDate);
+      const month = (date.getMonth() + 1).toString();
+
+      if (transaction.transactionType === 'Top Up') {
+        result[month].income += transaction.amount;
+      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
+        result[month].outcome += transaction.amount;
+      }
+    });
+
+    return result;
+  };
+
+  const transactions = jsonData.data;
+
+  const weeklyData = aggregateByWeek(transactions);
+  const dailyData = aggregateByDay(transactions);
+  const quarterlyData = aggregateByQuarter(transactions);
+  const monthlyData = aggregateByMonth(transactions);
+
+  const aggregatedData = {
+    daily: Object.keys(dailyData).map((day) => ({
+      label: day,
+      topUp: dailyData[day].income,
+      transfer: dailyData[day].outcome,
+    })),
+    weekly: Object.keys(weeklyData).map((week) => ({
+      label: week,
+      topUp: weeklyData[week].income,
+      transfer: weeklyData[week].outcome,
+    })),
+    monthly: Object.keys(monthlyData).map((month) => ({
+      label: new Date(0, parseInt(month) - 1).toLocaleString('default', { month: 'short' }),
+      topUp: monthlyData[month].income,
+      transfer: monthlyData[month].outcome,
+    })),
+    quarterly: Object.keys(quarterlyData).map((quarter) => ({
+      label: quarter,
+      topUp: quarterlyData[quarter].income,
+      transfer: quarterlyData[quarter].outcome,
+    })),
+  };
+
+  console.log('Aggregated Data:', aggregatedData);
+
   const { barData, maxValue, totalIncome, totalOutcome } = useMemo(() => {
-    const currentData = rawMockData[selectedType];
+    const currentData = aggregatedData[selectedType];
     let max = 0;
     let incomeSum = 0;
     let outcomeSum = 0;
@@ -70,7 +206,12 @@ const FinancialChart = () => {
     });
 
     const paddedMax = Math.ceil(max / 10000) * 10000;
-    return { barData: data, maxValue: paddedMax, totalIncome: incomeSum, totalOutcome: outcomeSum };
+    return { 
+      barData: data as { value: number; label?: string; spacing?: number; labelWidth?: number; labelTextStyle?: object; frontColor: string }[], 
+      maxValue: paddedMax as number, 
+      totalIncome: incomeSum as number, 
+      totalOutcome: outcomeSum as number 
+    };
   }, [selectedType]);
 
   const renderTabs = () => (
@@ -134,9 +275,7 @@ const FinancialChart = () => {
     <View>
       {/* Chart Card */}
       <View style={{ backgroundColor: PRIMARY_COLOR, borderRadius: 10, padding: 16 }}>
-
         {renderTabs()}
-
         <BarChart
           data={barData}
           barWidth={8}
