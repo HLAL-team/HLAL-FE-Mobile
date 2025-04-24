@@ -1,0 +1,211 @@
+{
+    "totalData": 20,
+    "status": true,
+    "code": 200,
+    "data": [
+      {
+        "transactionId": 14,
+        "transactionType": "Transfer",
+        "amount": 9000.00,
+        "sender": "adit Kaluela",
+        "recipient": "kalu cantika",
+        "description": "Transfer malam lagi",
+        "transactionDate": "2025-04-04T21:45:00",
+        "transactionDateFormatted": "04 Apr 2025 21:45"
+      },
+      {
+        "transactionId": 13,
+        "transactionType": "Top Up",
+        "amount": 45000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "QRIS topup",
+        "transactionDate": "2025-04-03T07:30:00",
+        "transactionDateFormatted": "03 Apr 2025 07:30"
+      },
+      {
+        "transactionId": 15,
+        "transactionType": "Payment",
+        "amount": 15000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Online Store",
+        "description": "Payment for groceries",
+        "transactionDate": "2025-04-05T10:15:00",
+        "transactionDateFormatted": "05 Apr 2025 10:15"
+      },
+      {
+        "transactionId": 16,
+        "transactionType": "Transfer",
+        "amount": 20000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Bagus Rahmat",
+        "description": "Uang bensin",
+        "transactionDate": "2025-04-06T09:00:00",
+        "transactionDateFormatted": "06 Apr 2025 09:00"
+      },
+      {
+        "transactionId": 17,
+        "transactionType": "Top Up",
+        "amount": 100000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Top up dari mobile banking",
+        "transactionDate": "2025-04-06T17:00:00",
+        "transactionDateFormatted": "06 Apr 2025 17:00"
+      },
+      {
+        "transactionId": 18,
+        "transactionType": "Payment",
+        "amount": 35000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Shopee",
+        "description": "Beli baju",
+        "transactionDate": "2025-04-07T14:30:00",
+        "transactionDateFormatted": "07 Apr 2025 14:30"
+      },
+      {
+        "transactionId": 19,
+        "transactionType": "Transfer",
+        "amount": 5000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Nita Sari",
+        "description": "Bayar utang",
+        "transactionDate": "2025-04-08T19:45:00",
+        "transactionDateFormatted": "08 Apr 2025 19:45"
+      },
+      {
+        "transactionId": 20,
+        "transactionType": "Withdrawal",
+        "amount": 10000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Tarik tunai ATM",
+        "transactionDate": "2025-04-09T11:00:00",
+        "transactionDateFormatted": "09 Apr 2025 11:00"
+      },
+      {
+        "transactionId": 21,
+        "transactionType": "Bill Payment",
+        "amount": 125000.00,
+        "sender": "adit Kaluela",
+        "recipient": "PLN",
+        "description": "Bayar listrik",
+        "transactionDate": "2025-04-10T08:15:00",
+        "transactionDateFormatted": "10 Apr 2025 08:15"
+      },
+      {
+        "transactionId": 22,
+        "transactionType": "Top Up",
+        "amount": 75000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Top up saldo Gopay",
+        "transactionDate": "2025-04-10T13:25:00",
+        "transactionDateFormatted": "10 Apr 2025 13:25"
+      },
+      {
+        "transactionId": 23,
+        "transactionType": "Payment",
+        "amount": 29000.00,
+        "sender": "adit Kaluela",
+        "recipient": "GrabFood",
+        "description": "Makan siang",
+        "transactionDate": "2025-04-10T12:00:00",
+        "transactionDateFormatted": "10 Apr 2025 12:00"
+      },
+      {
+        "transactionId": 24,
+        "transactionType": "Transfer",
+        "amount": 30000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Ibunda",
+        "description": "Uang belanja",
+        "transactionDate": "2025-04-11T07:30:00",
+        "transactionDateFormatted": "11 Apr 2025 07:30"
+      },
+      {
+        "transactionId": 25,
+        "transactionType": "Top Up",
+        "amount": 60000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Isi ulang saldo",
+        "transactionDate": "2025-04-12T16:30:00",
+        "transactionDateFormatted": "12 Apr 2025 16:30"
+      },
+      {
+        "transactionId": 26,
+        "transactionType": "Payment",
+        "amount": 47000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Tokopedia",
+        "description": "Beli headphone",
+        "transactionDate": "2025-04-13T09:45:00",
+        "transactionDateFormatted": "13 Apr 2025 09:45"
+      },
+      {
+        "transactionId": 27,
+        "transactionType": "Transfer",
+        "amount": 18000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Dwi",
+        "description": "Bayar patungan makan",
+        "transactionDate": "2025-04-13T20:15:00",
+        "transactionDateFormatted": "13 Apr 2025 20:15"
+      },
+      {
+        "transactionId": 28,
+        "transactionType": "Withdrawal",
+        "amount": 20000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Ambil uang cash",
+        "transactionDate": "2025-04-14T10:20:00",
+        "transactionDateFormatted": "14 Apr 2025 10:20"
+      },
+      {
+        "transactionId": 29,
+        "transactionType": "Bill Payment",
+        "amount": 45000.00,
+        "sender": "adit Kaluela",
+        "recipient": "IndiHome",
+        "description": "Bayar internet",
+        "transactionDate": "2025-04-14T15:40:00",
+        "transactionDateFormatted": "14 Apr 2025 15:40"
+      },
+      {
+        "transactionId": 30,
+        "transactionType": "Payment",
+        "amount": 22000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Alfamart",
+        "description": "Snack & minuman",
+        "transactionDate": "2025-04-14T18:10:00",
+        "transactionDateFormatted": "14 Apr 2025 18:10"
+      },
+      {
+        "transactionId": 31,
+        "transactionType": "Transfer",
+        "amount": 12000.00,
+        "sender": "adit Kaluela",
+        "recipient": "Fajar",
+        "description": "Ganti ongkir",
+        "transactionDate": "2025-04-15T11:35:00",
+        "transactionDateFormatted": "15 Apr 2025 11:35"
+      },
+      {
+        "transactionId": 32,
+        "transactionType": "Top Up",
+        "amount": 55000.00,
+        "sender": "adit Kaluela",
+        "recipient": null,
+        "description": "Top up dana",
+        "transactionDate": "2025-04-15T20:10:00",
+        "transactionDateFormatted": "15 Apr 2025 20:10"
+      }
+    ],
+    "message": "Data retrieved successfully",
+    "totalIncome": 440000.00,
+    "totalOutcome": 520000.00
+  }
+  
