@@ -1,234 +1,251 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { BarChart } from 'react-native-gifted-charts';
 import { PRIMARY_COLOR } from '@/constants/colors';
-const jsonData = require('./data.json');
+import { TRANSACTION_API } from "../../constants/api";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Define Transaction interface for better type safety
+interface Transaction {
+  transactionDate: string;
+  transactionType: string;
+  amount: number;
+}
 
 const FinancialChart = () => {
+  // State management
   const [selectedType, setSelectedType] = useState<'daily' | 'weekly' | 'monthly' | 'quarterly'>('monthly');
+  const [week, setWeek] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalIncome, setTotalIncome] = useState<number>(0);
+  const [totalOutcome, setTotalOutcome] = useState<number>(0);
 
-  function getCustomWeek(date: Date): string {
-    const day = date.getDate();
+  // Initialize date filters
+  useEffect(() => {
+    const today = new Date();
+    setWeek(Math.ceil(today.getDate() / 7).toString());
+    setMonth((today.getMonth() + 1).toString());
+    setYear(today.getFullYear().toString());
+  }, []);
 
-    if (day >= 1 && day <= 7) {
-      return 'week1';
-    } else if (day >= 8 && day <= 14) {
-      return 'week2';
-    } else if (day >= 15 && day <= 21) {
-      return 'week3';
-    } else {
-      return 'week4';
-    }
-  }
-
-  const aggregateByWeek = (transactions: Transaction[]): Record<string, { income: number; outcome: number }> => {
-    const result: Record<string, { income: number; outcome: number }> = {
-      week1: { income: 0, outcome: 0 },
-      week2: { income: 0, outcome: 0 },
-      week3: { income: 0, outcome: 0 },
-      week4: { income: 0, outcome: 0 },
-    };
-
-    transactions.forEach((transaction) => {
-      const date = new Date(transaction.transactionDate);
-      const weekNumber = getCustomWeek(date);
-
-      if (transaction.transactionType === 'Top Up') {
-        result[weekNumber].income += transaction.amount;
-      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
-        result[weekNumber].outcome += transaction.amount;
-      }
-    });
-
-    return result;
+  // Format number as Rupiah with periods as thousand separators
+  const formatRupiah = (number: number) => {
+    // Convert to string and remove decimal part
+    const parts = number.toString().split('.');
+    const integerPart = parts[0];
+    
+    // Add thousand separators
+    const formattedNumber = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    // Add Rp prefix
+    return `Rp${formattedNumber}`;
   };
 
-  interface Transaction {
-    transactionDate: string;
-    transactionType: string;
-    amount: number;
-  }
-
-  interface DailyAggregate {
-    [day: string]: { income: number; outcome: number };
-  }
-
-  const aggregateByDay = (transactions: Transaction[]): DailyAggregate => {
-    const result: DailyAggregate = {};
-
-    for (let i = 1; i <= 31; i++) {
-      result[i.toString()] = { income: 0, outcome: 0 };
-    }
-
-    transactions.forEach((transaction) => {
-      const date = new Date(transaction.transactionDate);
-      const day = date.getDate().toString();
-
-      if (transaction.transactionType === 'Top Up') {
-        result[day].income += transaction.amount;
-      } else if (transaction.transactionType === 'Transfer') {
-        result[day].outcome += transaction.amount;
-      }
-    });
-
-    return result;
-  };
-
-  interface QuarterlyAggregate {
-    [quarter: string]: { income: number; outcome: number };
-  }
-
-  const aggregateByQuarter = (transactions: Transaction[]): QuarterlyAggregate => {
-    const result: QuarterlyAggregate = {
-      Q1: { income: 0, outcome: 0 },
-      Q2: { income: 0, outcome: 0 },
-      Q3: { income: 0, outcome: 0 },
-      Q4: { income: 0, outcome: 0 },
-    };
-
-    transactions.forEach((transaction) => {
-      const date = new Date(transaction.transactionDate);
-      const month = date.getMonth();
-
-      let quarter: keyof QuarterlyAggregate;
-      if (month >= 0 && month <= 2) {
-        quarter = 'Q1';
-      } else if (month >= 3 && month <= 5) {
-        quarter = 'Q2';
-      } else if (month >= 6 && month <= 8) {
-        quarter = 'Q3';
-      } else {
-        quarter = 'Q4';
+  // Fetch transactions from API when filters change
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      // Skip if we don't have all required parameters
+      if (!year || 
+          (selectedType === 'daily' && (!week || !month)) ||
+          ((selectedType === 'weekly' || selectedType === 'monthly') && !month)) {
+        return;
       }
 
-      if (transaction.transactionType === 'Top Up') {
-        result[quarter].income += transaction.amount;
-      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
-        result[quarter].outcome += transaction.amount;
-      }
-    });
-
-    return result;
-  };
-
-  interface MonthlyAggregate {
-    [month: string]: { income: number; outcome: number };
-  }
-
-  const aggregateByMonth = (transactions: Transaction[]): MonthlyAggregate => {
-    const result: MonthlyAggregate = {
-      '1': { income: 0, outcome: 0 },
-      '2': { income: 0, outcome: 0 },
-      '3': { income: 0, outcome: 0 },
-      '4': { income: 0, outcome: 0 },
-      '5': { income: 0, outcome: 0 },
-      '6': { income: 0, outcome: 0 },
-      '7': { income: 0, outcome: 0 },
-      '8': { income: 0, outcome: 0 },
-      '9': { income: 0, outcome: 0 },
-      '10': { income: 0, outcome: 0 },
-      '11': { income: 0, outcome: 0 },
-      '12': { income: 0, outcome: 0 },
-    };
-
-    transactions.forEach((transaction) => {
-      const date = new Date(transaction.transactionDate);
-      const month = (date.getMonth() + 1).toString();
-
-      if (transaction.transactionType === 'Top Up') {
-        result[month].income += transaction.amount;
-      } else if (['Transfer', 'Payment', 'Withdrawal', 'Bill Payment'].includes(transaction.transactionType)) {
-        result[month].outcome += transaction.amount;
-      }
-    });
-
-    return result;
-  };
-
-  const transactions = jsonData.data;
-
-  const weeklyData = aggregateByWeek(transactions);
-  const dailyData = aggregateByDay(transactions);
-  const quarterlyData = aggregateByQuarter(transactions);
-  const monthlyData = aggregateByMonth(transactions);
-
-  const aggregatedData = {
-    daily: Object.keys(dailyData).map((day) => ({
-      label: day,
-      topUp: dailyData[day].income,
-      transfer: dailyData[day].outcome,
-    })),
-    weekly: Object.keys(weeklyData).map((week) => ({
-      label: week,
-      topUp: weeklyData[week].income,
-      transfer: weeklyData[week].outcome,
-    })),
-    monthly: Object.keys(monthlyData).map((month) => ({
-      label: new Date(0, parseInt(month) - 1).toLocaleString('default', { month: 'short' }),
-      topUp: monthlyData[month].income,
-      transfer: monthlyData[month].outcome,
-    })),
-    quarterly: Object.keys(quarterlyData).map((quarter) => ({
-      label: quarter,
-      topUp: quarterlyData[quarter].income,
-      transfer: quarterlyData[quarter].outcome,
-    })),
-  };
-
-  // console.log('Aggregated Data:', aggregatedData);
-
-  const { barData, maxValue, totalIncome, totalOutcome } = useMemo(() => {
-    const currentData = aggregatedData[selectedType];
-    let max = 0;
-    let incomeSum = 0;
-    let outcomeSum = 0;
-    const data = [];
-
-    currentData.forEach(({ label, topUp, transfer }) => {
-      max = Math.max(max, topUp, transfer);
-      incomeSum += topUp;
-      outcomeSum += transfer;
-
-      data.push(
-        {
-          value: topUp,
-          label: label,
-          spacing: 2,
-          labelWidth: currentData.length <= 4 ? 50 : 30,
-          labelTextStyle: { color: 'white' },
-          frontColor: '#8AFFC1',
-        },
-        {
-          value: transfer,
-          frontColor: '#FFD580',
+      setIsLoading(true);
+      setError(null);
+      
+      let url = '';
+      
+      try {
+        // Build URL based on selected type
+        if (selectedType === 'daily') {
+          url = `${TRANSACTION_API}/range?type=daily&year=${Number(year)}&month=${Number(month)}&week=${Number(week)}`;
+        } else if (selectedType === 'weekly') {
+          url = `${TRANSACTION_API}/range?type=weekly&year=${Number(year)}&month=${Number(month)}`;
+        } else if (selectedType === 'monthly') {
+          url = `${TRANSACTION_API}/range?type=monthly&year=${Number(year)}&month=${Number(month)}`;
+        } else if (selectedType === 'quarterly') {
+          url = `${TRANSACTION_API}/range?year=${Number(year)}&type=quarterly`;
         }
-      );
-    });
-
-    const paddedMax = Math.ceil(max / 10000) * 10000;
-    return { 
-      barData: data as { value: number; label?: string; spacing?: number; labelWidth?: number; labelTextStyle?: object; frontColor: string }[], 
-      maxValue: paddedMax as number, 
-      totalIncome: incomeSum as number, 
-      totalOutcome: outcomeSum as number 
+        
+        console.log('Fetching API URL:', url);
+        
+        // Get authentication token
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('Authentication required. Please log in again.');
+        }
+        
+        // Fetch data with authentication header
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        // Special handling for 404 - treat as "no data" instead of error
+        if (response.status === 404) {
+          console.log('No transaction data available for the selected period');
+          setTransactions([]);
+          setTotalIncome(0);
+          setTotalOutcome(0);
+          return;
+        }
+        
+        // Check if response is OK
+        if (response.status === 403) {
+          throw new Error('Access denied. You may need to log in again.');
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        
+        if (!text || text.trim() === '') {
+          console.log('Empty response received, treating as no data');
+          setTransactions([]);
+          setTotalIncome(0);
+          setTotalOutcome(0);
+          return;
+        }
+        
+        try {
+          const json = JSON.parse(text);
+          console.log('API response parsed successfully');
+          
+          if (!json.data) {
+            console.log('No data property in response');
+            setTransactions([]);
+            setTotalIncome(0);
+            setTotalOutcome(0);
+            return;
+          }
+          
+          // Extract total income and outcome values
+          setTotalIncome(parseFloat(json.totalIncome) || 0);
+          setTotalOutcome(parseFloat(json.totalOutcome) || 0);
+          setTransactions(json.data);
+        } catch (parseError) {
+          console.error('Error parsing JSON:', parseError);
+          setTransactions([]);
+          setTotalIncome(0);
+          setTotalOutcome(0);
+        }
+      } catch (error) {
+        console.error('Error in fetch operation:', error);
+        setError(`Failed to load data: ${error.message}`);
+        setTransactions([]);
+        setTotalIncome(0);
+        setTotalOutcome(0);
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, [selectedType]);
+    
+    fetchTransactions();
+  }, [selectedType, year, month, week]);
 
-  const renderTabs = () => (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 }}>
-      {['daily', 'weekly', 'monthly', 'quarterly'].map((type) => (
-        <TouchableOpacity key={type} onPress={() => setSelectedType(type as any)}>
-          <Text
-            style={{
-              color: selectedType === type ? 'white' : 'lightgray',
-              fontWeight: selectedType === type ? 'bold' : 'normal',
-              fontSize: 12,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-              borderRadius: 6,
-              backgroundColor: selectedType === type ? '#2BB58C' : 'transparent',
-            }}
+  // Filter UI rendering
+  const renderFilters = () => {
+    const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = monthNames.map((name, index) => ({ label: name, value: (index + 1).toString() }));
+    const weeks = ['1', '2', '3', '4'];
+
+    return (
+      <View style={styles.filterContainer}>
+        {selectedType === 'daily' && (
+          <>
+            <Picker
+              selectedValue={week}
+              style={styles.filterDropdown}
+              itemStyle={styles.pickerItem}
+              onValueChange={(itemValue) => setWeek(itemValue)}
+            >
+              {weeks.map((w) => (
+                <Picker.Item key={w} label={`Week ${w}`} value={w} />
+              ))}
+            </Picker>
+            <Picker
+              selectedValue={month}
+              style={styles.filterDropdown}
+              itemStyle={styles.pickerItem}
+              onValueChange={(itemValue) => setMonth(itemValue)}
+            >
+              {months.map((m) => (
+                <Picker.Item key={m.value} label={m.label} value={m.value} />
+              ))}
+            </Picker>
+            <Picker
+              selectedValue={year}
+              style={styles.filterDropdown}
+              itemStyle={styles.pickerItem}
+              onValueChange={(itemValue) => setYear(itemValue)}
+            >
+              {years.map((y) => (
+                <Picker.Item key={y} label={y} value={y} />
+              ))}
+            </Picker>
+          </>
+        )}
+        {selectedType === 'weekly' && (
+          <>
+            <Picker
+              selectedValue={month}
+              style={styles.filterDropdown}
+              itemStyle={styles.pickerItem}
+              onValueChange={(itemValue) => setMonth(itemValue)}
+            >
+              {months.map((m) => (
+                <Picker.Item key={m.value} label={m.label} value={m.value} />
+              ))}
+            </Picker>
+            <Picker
+              selectedValue={year}
+              style={styles.filterDropdown}
+              itemStyle={styles.pickerItem}
+              onValueChange={(itemValue) => setYear(itemValue)}
+            >
+              {years.map((y) => (
+                <Picker.Item key={y} label={y} value={y} />
+              ))}
+            </Picker>
+          </>
+        )}
+        {(selectedType === 'monthly' || selectedType === 'quarterly') && (
+          <Picker
+            selectedValue={year}
+            style={styles.filterDropdown}
+            itemStyle={styles.pickerItem}
+            onValueChange={(itemValue) => setYear(itemValue)}
           >
+            {years.map((y) => (
+              <Picker.Item key={y} label={y} value={y} />
+            ))}
+          </Picker>
+        )}
+      </View>
+    );
+  };
+
+  // Tab UI rendering
+  const renderTabs = () => (
+    <View style={styles.tabContainer}>
+      {['daily', 'weekly', 'monthly', 'quarterly'].map((type) => (
+        <TouchableOpacity 
+          key={type} 
+          onPress={() => setSelectedType(type as any)}
+        >
+          <Text style={[styles.tab, selectedType === type && styles.activeTab]}>
             {type.toUpperCase()}
           </Text>
         </TouchableOpacity>
@@ -236,66 +253,593 @@ const FinancialChart = () => {
     </View>
   );
 
-  const renderSummaryCards = () => (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-      <View
-        style={{
-          flex: 1,
-          marginRight: 8,
-          backgroundColor: '#8AFFC1',
-          borderRadius: 10,
-          padding: 12,
-          elevation: 2,
-        }}
-      >
-        <Text style={{ color: '#004D40', fontSize: 14, fontWeight: 'bold' }}>Total Income</Text>
-        <Text style={{ color: '#004D40', fontSize: 16, fontWeight: '600' }}>
-          Rp {totalIncome.toLocaleString('id-ID')}
-        </Text>
-      </View>
-      <View
-        style={{
-          flex: 1,
-          marginLeft: 8,
-          backgroundColor: '#FFD580',
-          borderRadius: 10,
-          padding: 12,
-          elevation: 2,
-        }}
-      >
-        <Text style={{ color: '#6A4100', fontSize: 14, fontWeight: 'bold' }}>Total Outcome</Text>
-        <Text style={{ color: '#6A4100', fontSize: 16, fontWeight: '600' }}>
-          Rp {totalOutcome.toLocaleString('id-ID')}
-        </Text>
-      </View>
-    </View>
-  );
+  // Updated aggregateByDay function that shows actual dates
+  const aggregateByDay = (transactions: Transaction[]) => {
+    // Get the days in the selected week
+    const selectedMonthNum = parseInt(month);
+    const selectedYearNum = parseInt(year);
+    const selectedWeekNum = parseInt(week);
+    
+    let firstDayOfWeek: number;
+    let lastDayOfWeek: number;
+    
+    // Calculate days in month
+    const daysInMonth = new Date(selectedYearNum, selectedMonthNum, 0).getDate();
+    
+    // Set date range based on selected week
+    switch (selectedWeekNum) {
+      case 1:
+        firstDayOfWeek = 1;
+        lastDayOfWeek = 7;
+        break;
+      case 2:
+        firstDayOfWeek = 8;
+        lastDayOfWeek = 14;
+        break;
+      case 3:
+        firstDayOfWeek = 15;
+        lastDayOfWeek = 21;
+        break;
+      case 4:
+        firstDayOfWeek = 22;
+        lastDayOfWeek = daysInMonth; // All remaining days in the month
+        break;
+      default:
+        firstDayOfWeek = 1;
+        lastDayOfWeek = 7;
+    }
+    
+    // Make sure the lastDayOfWeek doesn't exceed the days in the month
+    lastDayOfWeek = Math.min(lastDayOfWeek, daysInMonth);
+    
+    // Initialize result with days in the selected week
+    const result = {};
+    for (let i = firstDayOfWeek; i <= lastDayOfWeek; i++) {
+      result[i.toString()] = { income: 0, outcome: 0 };
+    }
+    
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return result;
+    }
+    
+    transactions.forEach((transaction) => {
+      try {
+        if (!transaction || !transaction.transactionDate) {
+          console.log('Invalid transaction data:', transaction);
+          return;
+        }
+        
+        const date = new Date(transaction.transactionDate);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.log('Invalid date:', transaction.transactionDate);
+          return;
+        }
+        
+        const day = date.getDate().toString();
+        
+        // Skip if the day is not in our result object (not in selected week)
+        if (!result[day]) {
+          return;
+        }
+        
+        // Parse amount to ensure it's a number
+        const amount = parseFloat(transaction.amount as any) || 0;
+        
+        if (transaction.transactionType === 'Top Up') {
+          result[day].income += amount;
+        } else {
+          result[day].outcome += amount;
+        }
+      } catch (error) {
+        console.error('Error processing daily transaction:', error, transaction);
+      }
+    });
+    
+    return result;
+  };
 
+  const aggregateByWeek = (transactions: Transaction[]) => {
+    // Initialize result with all weeks
+    const result = {
+      'Week 1': { income: 0, outcome: 0 },
+      'Week 2': { income: 0, outcome: 0 },
+      'Week 3': { income: 0, outcome: 0 },
+      'Week 4': { income: 0, outcome: 0 },
+    };
+    
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return result;
+    }
+    
+    transactions.forEach((transaction) => {
+      try {
+        if (!transaction || !transaction.transactionDate) {
+          console.log('Invalid transaction data:', transaction);
+          return;
+        }
+        
+        const date = new Date(transaction.transactionDate);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.log('Invalid date:', transaction.transactionDate);
+          return;
+        }
+        
+        const day = date.getDate();
+        const weekNumber = Math.min(4, Math.max(1, Math.ceil(day / 7)));
+        const weekKey = `Week ${weekNumber}`;
+        
+        // Safety check for the week key
+        if (!result[weekKey]) {
+          result[weekKey] = { income: 0, outcome: 0 };
+        }
+        
+        // Parse amount to ensure it's a number
+        const amount = parseFloat(transaction.amount as any) || 0;
+        
+        if (transaction.transactionType === 'Top Up') {
+          result[weekKey].income += amount;
+        } else {
+          result[weekKey].outcome += amount;
+        }
+      } catch (error) {
+        console.error('Error processing weekly transaction:', error, transaction);
+      }
+    });
+    
+    return result;
+  };
+
+  const aggregateByMonth = (transactions: Transaction[]) => {
+    // Month names for labels
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    
+    // Initialize result with all months
+    const result = {};
+    for (let i = 0; i < 12; i++) {
+      result[monthNames[i]] = { income: 0, outcome: 0 };
+    }
+    
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return result;
+    }
+    
+    transactions.forEach((transaction) => {
+      try {
+        if (!transaction || !transaction.transactionDate) {
+          console.log('Invalid transaction data:', transaction);
+          return;
+        }
+        
+        const date = new Date(transaction.transactionDate);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.log('Invalid date:', transaction.transactionDate);
+          return;
+        }
+        
+        const monthIndex = date.getMonth();
+        if (monthIndex < 0 || monthIndex >= 12) {
+          console.log('Invalid month index:', monthIndex);
+          return;
+        }
+        
+        const monthName = monthNames[monthIndex];
+        
+        // Safety check for month key
+        if (!result[monthName]) {
+          result[monthName] = { income: 0, outcome: 0 };
+        }
+        
+        // Parse amount to ensure it's a number
+        const amount = parseFloat(transaction.amount as any) || 0;
+        
+        if (transaction.transactionType === 'Top Up') {
+          result[monthName].income += amount;
+        } else {
+          result[monthName].outcome += amount;
+        }
+      } catch (error) {
+        console.error('Error processing monthly transaction:', error, transaction);
+      }
+    });
+    
+    return result;
+  };
+
+  // New aggregate by quarter function
+  const aggregateByQuarter = (transactions: Transaction[]) => {
+    // Initialize result with all quarters
+    const result = {
+      'Q1': { income: 0, outcome: 0 },
+      'Q2': { income: 0, outcome: 0 },
+      'Q3': { income: 0, outcome: 0 },
+      'Q4': { income: 0, outcome: 0 },
+    };
+    
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return result;
+    }
+    
+    transactions.forEach((transaction) => {
+      try {
+        if (!transaction || !transaction.transactionDate) {
+          console.log('Invalid transaction data:', transaction);
+          return;
+        }
+        
+        const date = new Date(transaction.transactionDate);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.log('Invalid date:', transaction.transactionDate);
+          return;
+        }
+        
+        const month = date.getMonth();
+        let quarter: string;
+        
+        // Determine quarter based on month (0-indexed)
+        if (month >= 0 && month <= 2) {
+          quarter = 'Q1';
+        } else if (month >= 3 && month <= 5) {
+          quarter = 'Q2';
+        } else if (month >= 6 && month <= 8) {
+          quarter = 'Q3';
+        } else {
+          quarter = 'Q4';
+        }
+        
+        // Safety check for quarter key
+        if (!result[quarter]) {
+          result[quarter] = { income: 0, outcome: 0 };
+        }
+        
+        // Parse amount to ensure it's a number
+        const amount = parseFloat(transaction.amount as any) || 0;
+        
+        if (transaction.transactionType === 'Top Up') {
+          result[quarter].income += amount;
+        } else {
+          result[quarter].outcome += amount;
+        }
+      } catch (error) {
+        console.error('Error processing quarterly transaction:', error, transaction);
+      }
+    });
+    
+    return result;
+  };
+
+  // Aggregate data based on selected type
+  const aggregatedData = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return selectedType === 'daily' ? aggregateByDay([]) : 
+             selectedType === 'weekly' ? aggregateByWeek([]) :
+             selectedType === 'monthly' ? aggregateByMonth([]) :
+             aggregateByQuarter([]);
+    }
+    
+    try {
+      if (selectedType === 'daily') {
+        return aggregateByDay(transactions);
+      } else if (selectedType === 'weekly') {
+        return aggregateByWeek(transactions);
+      } else if (selectedType === 'monthly') {
+        return aggregateByMonth(transactions);
+      } else if (selectedType === 'quarterly') {
+        return aggregateByQuarter(transactions);
+      }
+      return {};
+    } catch (error) {
+      console.error('Error in data aggregation:', error);
+      return {};
+    }
+  }, [transactions, selectedType, week, month, year]); // Added dependencies to recalculate when filters change
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    try {
+      const barData = [];
+      let maxValue = 0;
+      
+      if (!aggregatedData || typeof aggregatedData !== 'object') {
+        return { 
+          barData: [], 
+          maxValue: 10000, 
+          hasData: false,
+          yAxisLabels: Array(5).fill(0).map((_, i) => formatRupiah(i * 2500))
+        };
+      }
+      
+      // For daily view, need to sort the keys numerically
+      const keys = Object.keys(aggregatedData);
+      if (selectedType === 'daily') {
+        keys.sort((a, b) => parseInt(a) - parseInt(b));
+      }
+      
+      keys.forEach((key) => {
+        const dataPoint = aggregatedData[key];
+        if (!dataPoint) return;
+        
+        const income = parseFloat(dataPoint.income) || 0;
+        const outcome = parseFloat(dataPoint.outcome) || 0;
+        
+        maxValue = Math.max(maxValue, income, outcome);
+        
+        // For daily view, append a day prefix to the label
+        const label = selectedType === 'daily' ? `Day ${key}` : key;
+        
+        barData.push(
+          {
+            value: income,
+            label: label,
+            frontColor: '#8AFFC1', // Green for income
+            labelTextStyle: { color: 'white', fontSize: 9 },
+            spacing: 2,
+            labelWidth: 25,
+          },
+          {
+            value: outcome,
+            frontColor: '#FFD580', // Orange for expenses
+          }
+        );
+      });
+      
+      // Ensure max value is at least 10,000 and rounded up
+      const roundedMaxValue = maxValue === 0 ? 10000 : Math.ceil(maxValue / 10000) * 10000;
+      
+      // Create formatted y-axis labels
+      const sections = 4;
+      const yAxisLabels = Array.from({ length: sections + 1 }, (_, i) => {
+        const value = (i * roundedMaxValue) / sections;
+        return formatRupiah(value);
+      });
+      
+      return { 
+        barData, 
+        maxValue: roundedMaxValue,
+        hasData: barData.length > 0 && maxValue > 0,
+        yAxisLabels
+      };
+    } catch (error) {
+      console.error('Error preparing chart data:', error);
+      return { 
+        barData: [], 
+        maxValue: 10000, 
+        hasData: false,
+        yAxisLabels: Array(5).fill(0).map((_, i) => formatRupiah(i * 2500))
+      };
+    }
+  }, [aggregatedData, selectedType]);
+
+  // Format currency function
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Main component render
   return (
-    <View>
-      {/* Chart Card */}
-      <View style={{ backgroundColor: PRIMARY_COLOR, borderRadius: 10, padding: 16 }}>
-        {renderTabs()}
-        <BarChart
-          data={barData}
-          barWidth={8}
-          spacing={selectedType === 'daily' || barData.length <= 4 ? 48 : 24}
-          roundedTop
-          roundedBottom
-          hideRules
-          xAxisThickness={0}
-          yAxisThickness={1}
-          yAxisColor="white"
-          yAxisTextStyle={{ color: 'white', fontSize: 10 }}
-          noOfSections={4}
-          maxValue={maxValue}
-        />
+    <View style={styles.container}>
+      {renderTabs()}
+      {renderFilters()}
+      
+      <View style={styles.chartContainer}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.loadingText}>Loading data...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : chartData.hasData ? (
+          <BarChart
+            data={chartData.barData}
+            barWidth={
+              selectedType === 'quarterly' ? 20 : 
+              selectedType === 'weekly' ? 16 : 
+              8  // default for daily and monthly
+            }
+            spacing={selectedType === 'daily' ? 20 : 
+                    selectedType === 'quarterly' ? 40 :
+                    selectedType === 'weekly' ? 30 :
+                    chartData.barData.length <= 2 ? 40 : 24}
+            roundedTop
+            roundedBottom
+            hideRules
+            xAxisThickness={0}
+            yAxisThickness={1}
+            yAxisColor="white"
+            yAxisTextStyle={{ color: 'white', fontSize: 7 }}
+            noOfSections={4}
+            maxValue={chartData.maxValue}
+            initialSpacing={10}
+            yAxisLabelTexts={chartData.yAxisLabels}
+            lineConfig={{
+              color: '#F29C6E',
+              thickness: 3,
+              curved: true,
+              hideDataPoints: true,
+              shiftY: 100,
+              initialSpacing: 10,
+            }}
+            xAxisLabelTextStyle={{color: 'lightgray', textAlign: 'center'}}
+          />
+        ) : (
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No transaction data available</Text>
+          </View>
+        )}
+      </View>
+      
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#8AFFC1' }]} />
+          <Text style={styles.legendText}>Income</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#FFD580' }]} />
+          <Text style={styles.legendText}>Expense</Text>
+        </View>
       </View>
 
-      {/* Summary Cards */}
-      {renderSummaryCards()}
+      {/* Total Income & Outcome Cards */}
+      <View style={styles.totalsContainer}>
+        <View style={[styles.totalCard, { borderLeftColor: '#8AFFC1', borderLeftWidth: 4 }]}>
+          <Text style={styles.totalLabel}>Total Income</Text>
+          <Text style={[styles.totalAmount, { color: '#2E9464' }]}>{formatCurrency(totalIncome)}</Text>
+        </View>
+        <View style={[styles.totalCard, { borderLeftColor: '#FFD580', borderLeftWidth: 4 }]}>
+          <Text style={styles.totalLabel}>Total Outcome</Text>
+          <Text style={[styles.totalAmount, { color: '#FF8B3D' }]}>{formatCurrency(totalOutcome)}</Text>
+        </View>
+      </View>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingBottom: 20,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    //marginVertical: 8,
+    //padding: 8,
+    //backgroundColor: 'red',
+  },
+  filterDropdown: {
+    flex: 1,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    marginHorizontal: 0,
+    //backgroundColor: 'blue',
+  },
+  pickerItem: {
+    fontSize: 10, // Smaller font size to prevent truncation
+    height: 120, // Adjust height for better visibility
+    backgroundColor: 'blue',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    //marginBottom: 8,
+    //paddingHorizontal: 8,
+  },
+  tab: {
+    color: 'gray',
+    fontWeight: 'normal',
+    fontSize: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+  },
+  activeTab: {
+    color: 'white',
+    fontWeight: 'bold',
+    backgroundColor: PRIMARY_COLOR,
+  },
+  chartContainer: {
+    backgroundColor: PRIMARY_COLOR,
+    borderRadius: 10,
+    padding: 16,
+    marginTop: 10,
+    height: 300,
+    justifyContent: 'center'
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    marginTop: 8,
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: 'white',
+    textAlign: 'center',
+  },
+  noDataContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noDataText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  legendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  legendColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+  },
+  // New styles for total cards
+  totalsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingHorizontal: 8,
+  },
+  totalCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 16,
+    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: 'gray',
+    marginBottom: 8,
+  },
+  totalAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
 
 export default FinancialChart;
