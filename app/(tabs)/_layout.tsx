@@ -41,6 +41,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="home" options={{ title: 'Home' }} />
       <Tabs.Screen name="myTracker" options={{ title: 'My Tracker' }} />
+      <Tabs.Screen name="history" options={{ title: 'History' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );
