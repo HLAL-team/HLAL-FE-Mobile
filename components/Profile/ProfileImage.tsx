@@ -39,7 +39,7 @@ export default function ProfileImage() {
         }
 
         const json = await response.json();
-        setImageUrl(json.avatarUrl || "https://via.placeholder.com/150");
+        setImageUrl(json.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(json.fullname)}&background=19918F&color=fff`);
       } catch (error) {
         console.error("Failed to fetch profile image:", error);
         setImageUrl("https://via.placeholder.com/150"); // Fallback image
@@ -105,7 +105,7 @@ export default function ProfileImage() {
       }
   
       const json = await response.json();
-      setImageUrl(json.avatarUrl || "https://via.placeholder.com/150");
+      setImageUrl(json.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(json.fullname)}&background=19918F&color=fff`);
       Alert.alert("Success", "Profile image updated successfully!");
     } catch (error) {
       console.error("Failed to update profile image:", error);

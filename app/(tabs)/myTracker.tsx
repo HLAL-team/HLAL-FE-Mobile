@@ -1,6 +1,5 @@
-import { FlatList, View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import React, { useEffect, useState } from "react";
-import Transaction from "@/components/MyTracker/Transaction";
 import IncomeOutcomeChart from "@/components/MyTracker/IncomeOutcomeChart";
 import { PROFILE_API } from "@/constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -42,46 +41,26 @@ const MyTracker = () => {
     fetchUsername();
   }, []);
 
-  const renderHeader = () => (
-    <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-      ) : (
-        <>
-          <Text
-            style={{
-              color: "black",
-              fontSize: 30,
-              fontWeight: "600",
-              textAlign: "left",
-              marginBottom: 8,
-            }}
-          >
-            Hi, {username}
-          </Text>
-          <Text style={{ color: "black", fontSize: 16, marginBottom: 20 }}>
-            Here's your transaction journey.
-          </Text>
-          <IncomeOutcomeChart />
-        </>
-      )}
-    </View>
-  );
-
-  const renderFooter = () => (
-    <View style={styles.transactionContainer}>
-      <Transaction />
-    </View>
-  );
-
   return (
-    <FlatList
-      ListHeaderComponent={renderHeader}
-      data={[]} // Empty data since the header and Transaction component handle content
-      renderItem={null} // No items to render in the FlatList
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={styles.scrollContainer}
-    />
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        {loading ? (
+          <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+        ) : (
+          <>
+            <Text style={styles.greeting}>
+              Hi, {username}
+            </Text>
+            <Text style={styles.subheading}>
+              Here's your transaction journey.
+            </Text>
+            <View style={styles.chartContainer}>
+              <IncomeOutcomeChart />
+            </View>
+          </>
+        )}
+      </View>
+    </ScrollView>
   );
 };
 
@@ -89,20 +68,28 @@ export default MyTracker;
 
 const styles = StyleSheet.create({
   scrollContainer: {
-    flexGrow: 1, // Ensures the content takes up the available space
+    flexGrow: 1,
   },
   container: {
     flex: 1,
-    backgroundColor: "white", // Set background color to white
-    paddingHorizontal: 25, // Add padding around the entire screen
-    paddingTop: 25, // Add padding above the header
+    backgroundColor: "white",
+    paddingHorizontal: 25,
+    paddingTop: 25,
+    paddingBottom: 30,
   },
-  transactionContainer: {
-    backgroundColor: "white", // Set background color to white for Transaction
-    paddingHorizontal: 25, // Add padding around the Transaction component
-    paddingTop: 0, // Add padding above the Transaction component
+  greeting: {
+    color: "black",
+    fontSize: 30,
+    fontWeight: "600",
+    textAlign: "left",
+    marginBottom: 8,
+  },
+  subheading: {
+    color: "black",
+    fontSize: 16,
+    marginBottom: 20,
   },
   chartContainer: {
-    marginBottom: 20, // Add margin below the chart to separate it from the transaction history
+    marginTop: 20,
   },
 });

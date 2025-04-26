@@ -48,7 +48,7 @@ export default function Header() {
   return (
     <View style={styles.container}>
       <Image
-        source={{ uri: user?.avatarUrl || 'https://example.com/default-avatar.jpg' }}
+        source={{ uri: user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullname)}&background=19918F&color=fff` }}
         style={styles.avatar}
       />
       <View>
