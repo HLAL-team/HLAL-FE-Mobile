@@ -1,11 +1,15 @@
-// app/topupinvoice.tsx
 import React from 'react';
 import { View, Text, StyleSheet, Image, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { PRIMARY_COLOR } from '@/constants/colors';
 
 export default function TopupInvoicePage() {
-  const { source, amount } = useLocalSearchParams<{ source: string; amount: string }>();
+  const { sourceName, amount, notes, transactionDateFormatted } = useLocalSearchParams<{
+    sourceName: string;
+    amount: string;
+    notes: string;
+    transactionDateFormatted: string;
+  }>();
 
   const handleBackToHome = () => {
     router.replace('/(tabs)/home');
@@ -22,12 +26,28 @@ export default function TopupInvoicePage() {
 
         <Text style={styles.successText}>Top Up Successful</Text>
 
-        <View style={styles.detailBox}>
-          <Text style={styles.label}>Source</Text>
-          <Text style={styles.value}>{source || '-'}</Text>
+        <View style={styles.invoiceBox}>
+          <Text style={styles.invoiceHeader}>Transaction Details</Text>
 
-          <Text style={[styles.label, { marginTop: 20 }]}>Amount</Text>
-          <Text style={styles.value}>Rp {Number(amount || 0).toLocaleString()}</Text>
+          <View style={styles.invoiceRow}>
+            <Text style={styles.label}>Source</Text>
+            <Text style={styles.value}>{sourceName || '-'}</Text>
+          </View>
+
+          <View style={styles.invoiceRow}>
+            <Text style={styles.label}>Amount</Text>
+            <Text style={styles.value}>Rp {Number(amount || 0).toLocaleString()}</Text>
+          </View>
+
+          <View style={styles.invoiceRow}>
+            <Text style={styles.label}>Notes</Text>
+            <Text style={styles.value}>{notes || '-'}</Text>
+          </View>
+
+          <View style={styles.invoiceRow}>
+            <Text style={styles.label}>Transaction Date</Text>
+            <Text style={styles.value}>{transactionDateFormatted || '-'}</Text>
+          </View>
         </View>
 
         <TouchableOpacity style={styles.button} onPress={handleBackToHome}>
@@ -60,22 +80,36 @@ const styles = StyleSheet.create({
     color: PRIMARY_COLOR,
     marginBottom: 30,
   },
-  detailBox: {
+  invoiceBox: {
     width: '100%',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 20,
     marginBottom: 30,
   },
+  invoiceHeader: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   label: {
     fontSize: 14,
     color: '#666',
+    flex: 1,
   },
   value: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '500',
     color: '#333',
-    marginTop: 4,
+    flex: 1,
+    textAlign: 'right',
   },
   button: {
     backgroundColor: PRIMARY_COLOR,

@@ -1,11 +1,20 @@
-// app/signup.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import CheckboxWithText from '../components/CheckboxWithText';
 import { useRouter } from 'expo-router';
 import { PRIMARY_COLOR } from '../constants/colors';
+import { REGISTER_API } from '../constants/api';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -14,13 +23,53 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [username, setUsername] = useState('');
   const [agree, setAgree] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = () => {
-    if (agree) {
-      console.log({ fullname, email, password, phone });
-    } else {
-      alert('Please agree to the Terms & Conditions.');
+  const handleSubmit = async () => {
+    setErrorMessage('');
+
+    if (!agree) {
+      setErrorMessage('Please agree to the Terms & Conditions.');
+      return;
+    }
+
+    try {
+      const response = await fetch(REGISTER_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullname,
+          email,
+          username,
+          password,
+          phoneNumber: phone,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'Success') {
+        // On success, show success message
+        Alert.alert(
+          'Registration Successful',
+          'Your account has been created. Please log in to continue.',
+          [
+            {
+              text: 'Go to Login',
+              onPress: () => router.push('/login'),
+            },
+          ]
+        );
+      } else {
+        // Show error if registration fails
+        setErrorMessage(data.message || 'Registration failed.');
+      }
+    } catch (err) {
+      setErrorMessage('Network error. Please try again.');
     }
   };
 
@@ -30,7 +79,6 @@ export default function SignUpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.innerContainer}>
-        {/* Scrollable content */}
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <Image
@@ -45,42 +93,57 @@ export default function SignUpScreen() {
           </View>
 
           <View style={styles.formSection}>
-            <InputField label="Full Name" value={fullname} onChangeText={setFullname} />
-            <InputField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-            <InputField label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-            <InputField label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <InputField
+              label="Full Name"
+              value={fullname}
+              onChangeText={setFullname}
+            />
+            <InputField
+              label="Username"
+              value={username}
+              onChangeText={setUsername}
+            />
+            <InputField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+            />
+            <InputField
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            <InputField
+              label="Phone Number"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+            />
           </View>
         </ScrollView>
 
-  {/* Fixed bottom section */}
-  <View style={styles.footer}>
-    <CheckboxWithText checked={agree} onPress={() => setAgree(!agree)} />
+        {/* Error message */}
+        {errorMessage !== '' && <Text style={styles.errorText}>{errorMessage}</Text>}
 
-    <PrimaryButton
-      label="Sign Up"
-      onPress={() => {
-        if (agree) {
-          handleSubmit();
-          router.push('(tabs)/home');
-        } else {
-          alert('Please agree to the Terms & Conditions.');
-        }
-      }}
-    />
-
-    <Text style={{ color: '#444', alignItems: 'center', textAlign: 'center', marginBottom: 16 }}>
-      Already have an account?{' '}
-      <Text
-        onPress={() => router.push('/login')}
-        style={{ color: PRIMARY_COLOR, fontWeight: '600' }}
-      >
-        Log In
-      </Text>
-    </Text>
-  </View>
-  
-          </View>
-
+        <View style={styles.footer}>
+          <CheckboxWithText checked={agree} onPress={() => setAgree(!agree)} />
+          <PrimaryButton
+            label="Sign Up"
+            onPress={handleSubmit}
+          />
+          <Text style={styles.footerText}>
+            Already have an account?{' '}
+            <Text
+              onPress={() => router.push('/login')}
+              style={styles.linkText}
+            >
+              Log In
+            </Text>
+          </Text>
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -118,5 +181,21 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: 6,
+  },
+  footerText: {
+    color: '#444',
+    alignItems: 'center',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  linkText: {
+    color: PRIMARY_COLOR,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: 'center',
   },
 });

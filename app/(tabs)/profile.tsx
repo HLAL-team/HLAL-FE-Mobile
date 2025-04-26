@@ -6,21 +6,126 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  ActivityIndicator,
+  TextInput,
+  Alert,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { PROFILE_API, EDIT_PROFILE_API } from "../../constants/api";
 import { PRIMARY_COLOR } from "../../constants/colors";
 import ProfileImage from "../../components/Profile/ProfileImage";
 import BioField from "../../components/Profile/BioField";
 import PasswordField from "../../components/Profile/PasswordField";
+import { useRouter } from "expo-router";
+
+interface Profile {
+  fullname: string;
+  username: string;
+  email: string;
+  phoneNumber: string;
+  accountNumber: string;
+  balance: number;
+}
 
 export default function Profile() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState("••••••••");
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const router = useRouter();
 
-  const handleSubmit = () => {
-    setIsEditing(false);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          console.error("No token found");
+          return;
+        }
+
+        const response = await fetch(PROFILE_API, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch profile");
+        }
+
+        const json = await response.json();
+        setProfile(json);
+        setNewUsername(json.username); // Pre-fill the username field
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const handleEditProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("username", newUsername);
+      formData.append("password", newPassword);
+
+      const response = await fetch(EDIT_PROFILE_API, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        console.error("Error response:", errorResponse);
+        throw new Error(errorResponse.message || "Failed to update profile");
+      }
+
+      const json = await response.json();
+      setProfile((prev) => ({
+        ...prev,
+        username: json.username,
+      }));
+      Alert.alert("Success", "Profile updated successfully!");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      Alert.alert("Error", "Failed to update profile. Please try again.");
+    }
   };
+
+  const handleSignOut = async () => {
+    try {
+      await AsyncStorage.removeItem("authToken"); // Clear the token
+      router.replace("/login"); // Redirect to the login screen
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -34,16 +139,37 @@ export default function Profile() {
         <ProfileImage />
 
         <View style={styles.usernameContainer}>
-          <Text style={styles.username}>username123</Text>
-          <TouchableOpacity style={styles.editUsernameButton}>
-            <Text>Edit</Text>
+          {isEditing ? (
+            <TextInput
+              style={styles.usernameInput}
+              value={newUsername}
+              onChangeText={setNewUsername}
+              placeholder="Enter new username"
+            />
+          ) : (
+            <Text style={styles.username}>{profile?.username || "Guest"}</Text>
+          )}
+          <TouchableOpacity
+            style={styles.editUsernameButton}
+            onPress={() => setIsEditing(!isEditing)}
+          >
+            <Text>{isEditing ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.bioContainer}>
-          <BioField title="Full Name" value="John Doe" />
-          <BioField title="Email" value="johndoe@example.com" />
-          <BioField title="Phone" value="+62 812 3456 7890" />
+          <BioField title="Full Name" value={profile?.fullname || "N/A"} />
+          <BioField title="Email" value={profile?.email || "N/A"} />
+          <BioField title="Phone" value={profile?.phoneNumber || "N/A"} />
+          {isEditing && (
+            <TextInput
+              style={styles.passwordInput}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Enter new password"
+              secureTextEntry
+            />
+          )}
           <PasswordField
             password={password}
             setPassword={setPassword}
@@ -55,12 +181,12 @@ export default function Profile() {
         </View>
 
         {isEditing && (
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <TouchableOpacity style={styles.submitButton} onPress={handleEditProfile}>
             <Text style={styles.submitText}>Submit Changes</Text>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.signOutButton}>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -74,6 +200,12 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     flexGrow: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white",
+  },
   usernameContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -84,6 +216,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     marginRight: 5,
+  },
+  usernameInput: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginRight: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: PRIMARY_COLOR,
+    flex: 1,
+  },
+  passwordInput: {
+    fontSize: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: PRIMARY_COLOR,
+    marginVertical: 10,
+    padding: 5,
   },
   editUsernameButton: {
     padding: 5,

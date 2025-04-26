@@ -1,15 +1,58 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PRIMARY_COLOR } from '@/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PROFILE_API } from '@/constants/api';
+
+interface User {
+  fullname: string;
+  accountNumber: string;
+  balance: number;
+}
 
 export default function BalanceCard() {
   const [isVisible, setIsVisible] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fullName = 'John Doe';
-  const accountNumber = '7060 4487 1';
-  const balance = 'Rp 1.500.000';
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        setLoading(true);
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          console.error('No token found');
+          return;
+        }
+
+        const response = await fetch(PROFILE_API, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+
+        const json = await response.json();
+        // Update to match the API response structure
+        setUser(json);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  if (loading) {
+    return <ActivityIndicator size="small" color={PRIMARY_COLOR} />;
+  }
 
   return (
     <LinearGradient
@@ -20,9 +63,9 @@ export default function BalanceCard() {
     >
       <View style={styles.row}>
         <View>
-          <Text style={styles.name}>{fullName}</Text>
+          <Text style={styles.name}>{user?.fullname || 'Guest'}</Text>
           <Text style={styles.account}>
-            {isVisible ? accountNumber : '•••• •••• •••'}
+            {isVisible ? user?.accountNumber || 'N/A' : '•••• •••• •••'}
           </Text>
         </View>
         <TouchableOpacity onPress={() => setIsVisible(!isVisible)}>
@@ -36,7 +79,9 @@ export default function BalanceCard() {
 
       <View>
         <Text style={styles.label}>Your Balance</Text>
-        <Text style={styles.balance}>{isVisible ? balance : 'Rp ••••••••'}</Text>
+        <Text style={styles.balance}>
+          {isVisible ? `Rp ${user?.balance?.toLocaleString() || '0'}` : 'Rp ••••••••'}
+        </Text>
       </View>
     </LinearGradient>
   );

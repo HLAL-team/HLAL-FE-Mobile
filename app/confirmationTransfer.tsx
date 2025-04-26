@@ -1,27 +1,66 @@
-// app/confirmationTransfer.tsx
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PRIMARY_COLOR } from '@/constants/colors';
+import { TRANSACTION_API } from '@/constants/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ConfirmationTransferPage() {
   const router = useRouter();
-  const { recipient, amount, notes } = useLocalSearchParams();
+  const { recipientAccountNumber, amount, notes } = useLocalSearchParams<{
+    recipientAccountNumber: string;
+    amount: string;
+    notes: string;
+  }>();
 
-  const handleConfirm = () => {
-    if (!recipient || !amount) {
-      alert('Missing transfer data');
-      return;
+  const handleConfirm = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        Alert.alert('Error', 'No authentication token found');
+        return;
+      }
+  
+      const payload = {
+        recipientAccountNumber: parseInt(recipientAccountNumber, 10),
+        transactionTypeId: 2, // Fixed value for transfer
+        topUpMethodId: null, // Not applicable for transfer
+        amount: parseInt(amount, 10),
+        description: notes || 'Transfer',
+      };
+  
+      const response = await fetch(`${TRANSACTION_API}/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        throw new Error(errorResponse.message || 'Failed to process transfer');
+      }
+  
+      // Check if the response has a body
+      const responseText = await response.text();
+      const responseData = responseText ? JSON.parse(responseText) : null;
+  
+      // Navigate to the invoice page with the required information
+      router.push({
+        pathname: '/transferInvoice',
+        params: {
+          recipient: responseData?.data?.recipient || 'Unknown',
+          amount: responseData?.data?.amount?.toString() || '0',
+          notes: responseData?.data?.description || 'Transfer',
+          transactionDateFormatted: responseData?.data?.transactionDateFormatted || '-',
+        },
+      });
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      Alert.alert('Error', error.message || 'Failed to process transfer');
     }
-
-    router.push({
-      pathname: '/transferInvoice',
-      params: {
-        recipient,
-        amount,
-        notes,
-      },
-    });
   };
 
   return (
@@ -31,10 +70,10 @@ export default function ConfirmationTransferPage() {
 
         <View style={styles.detailBox}>
           <Text style={styles.label}>Recipient</Text>
-          <Text style={styles.value}>{recipient}</Text>
+          <Text style={styles.value}>{recipientAccountNumber || '-'}</Text>
 
-          <Text style={styles.label}>Transfer Nominal</Text>
-          <Text style={styles.value}>Rp {parseFloat(amount as string).toLocaleString()}</Text>
+          <Text style={styles.label}>Amount</Text>
+          <Text style={styles.value}>Rp {Number(amount || 0).toLocaleString()}</Text>
 
           <Text style={styles.label}>Notes</Text>
           <Text style={styles.value}>{notes || '-'}</Text>
@@ -75,7 +114,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: '#666',
-    marginTop: 12,
   },
   value: {
     fontSize: 18,

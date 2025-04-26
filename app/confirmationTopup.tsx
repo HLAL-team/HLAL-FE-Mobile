@@ -1,28 +1,106 @@
-// app/confirmationTopUp.tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PRIMARY_COLOR } from '@/constants/colors';
+import { TOP_UP_TRANSFER_API, TRANSACTION_API } from '@/constants/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ConfirmationTopUpPage() {
   const router = useRouter();
-  const { source, amount } = useLocalSearchParams();
+  const { source, amount, notes } = useLocalSearchParams();
   const selectedNominal = amount ? parseFloat(amount as string) : null;
 
-  const handleConfirm = () => {
+  const [sourceName, setSourceName] = useState<string | null>(null);
+  const [loadingSource, setLoadingSource] = useState(true);
+
+  useEffect(() => {
+    const fetchSourceName = async () => {
+      try {
+        setLoadingSource(true);
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+
+        const response = await fetch(`${TRANSACTION_API}/topupmethod`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch top-up methods');
+        }
+
+        const json = await response.json();
+        const selectedSource = json.data.find((item: { id: number }) => item.id.toString() === source);
+
+        if (selectedSource) {
+          setSourceName(selectedSource.name);
+        } else {
+          setSourceName('Unknown Source');
+        }
+      } catch (error) {
+        console.error('Failed to fetch source name:', error);
+      } finally {
+        setLoadingSource(false);
+      }
+    };
+
+    fetchSourceName();
+  }, [source]);
+
+  const handleConfirm = async () => {
     if (!selectedNominal || !source) {
-      alert('Please fill all fields');
+      console.error('Please fill all fields');
       return;
     }
 
-    // Navigate to the topUpInvoice page with source and amount params
-    router.push({
-      pathname: '/topupInvoice',
-      params: {
-        source,
-        amount: selectedNominal.toString(),
-      },
-    });
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const payload = {
+        recipientWalletId: null, // Assuming no recipient wallet is needed for top-up
+        transactionTypeId: 1, // Fixed value for top-up
+        topUpMethodId: parseInt(source as string, 10), // Use the selected source ID
+        amount: selectedNominal,
+        description: notes || 'Topup', // Use notes if provided, otherwise default to "Topup"
+      };
+
+      const response = await fetch(TOP_UP_TRANSFER_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        throw new Error(errorResponse.message || 'Failed to process top-up');
+      }
+
+      const responseData = await response.json();
+
+      // Navigate to the invoice page with the required information
+      router.push({
+        pathname: '/topupInvoice',
+        params: {
+          sourceName,
+          amount: responseData.data.amount.toString(),
+          notes: responseData.data.description,
+          transactionDateFormatted: responseData.data.transactionDateFormatted,
+        },
+      });
+    } catch (error) {
+      console.error('Top-up failed:', error);
+    }
   };
 
   return (
@@ -32,10 +110,17 @@ export default function ConfirmationTopUpPage() {
         
         <View style={styles.detailBox}>
           <Text style={styles.label}>Source</Text>
-          <Text style={styles.value}>{source || '-'}</Text>
+          {loadingSource ? (
+            <ActivityIndicator size="small" color={PRIMARY_COLOR} />
+          ) : (
+            <Text style={styles.value}>{sourceName || '-'}</Text>
+          )}
 
           <Text style={styles.label}>Amount</Text>
           <Text style={styles.value}>Rp {selectedNominal?.toLocaleString() || '-'}</Text>
+
+          <Text style={styles.label}>Notes</Text>
+          <Text style={styles.value}>{notes || '-'}</Text>
         </View>
 
         <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>

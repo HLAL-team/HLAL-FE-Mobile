@@ -1,4 +1,3 @@
-// app/transferInvoice.tsx
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -6,7 +5,12 @@ import { PRIMARY_COLOR } from '@/constants/colors';
 import { EvilIcons } from '@expo/vector-icons';
 
 export default function TransferInvoicePage() {
-  const { amount, recipient, notes } = useLocalSearchParams<{ amount: string; recipient: string; notes: string }>();
+  const { amount, recipient, notes, transactionDateFormatted } = useLocalSearchParams<{
+    amount: string;
+    recipient: string;
+    notes: string;
+    transactionDateFormatted: string;
+  }>();
 
   const handleBackToHome = () => {
     router.replace('/(tabs)/home');
@@ -15,7 +19,6 @@ export default function TransferInvoicePage() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        
         {/* ✅ Green checklist icon */}
         <EvilIcons name="check" size={100} color="green" style={styles.icon} />
 
@@ -30,6 +33,9 @@ export default function TransferInvoicePage() {
 
           <Text style={[styles.label, { marginTop: 20 }]}>Notes</Text>
           <Text style={styles.value}>{notes || '-'}</Text>
+
+          <Text style={[styles.label, { marginTop: 20 }]}>Transaction Date</Text>
+          <Text style={styles.value}>{transactionDateFormatted || '-'}</Text>
         </View>
 
         <TouchableOpacity style={styles.button} onPress={handleBackToHome}>
@@ -53,7 +59,7 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginBottom: 20,
-    paddingBottom: 20
+    paddingBottom: 20,
   },
   successText: {
     fontSize: 20,

@@ -7,21 +7,50 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import { useRouter } from 'expo-router';
 import { PRIMARY_COLOR } from '../constants/colors';
+import { LOGIN_API } from '../constants/api';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleLogin = () => {
-    console.log({ email, password });
+  
+
+  const handleLogin = async () => {
+    try {
+      const response = await fetch(LOGIN_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usernameOrEmail: email,
+          password,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (data.status === "Success") {
+        // Store the token in AsyncStorage
+        await AsyncStorage.setItem("authToken", data.token);
+  
+        // Navigate to the home screen
+        router.push("(tabs)/home");
+      } else {
+        setErrorMessage(data.message || "Login failed.");
+      }
+    } catch (err) {
+      setErrorMessage("Network error. Please try again.");
+    }
   };
 
   return (
@@ -30,7 +59,6 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.innerContainer}>
-        {/* Scrollable content */}
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <Image
@@ -60,8 +88,10 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
 
-        {/* Fixed bottom section */}
         <View style={styles.footer}>
+          {/* Display error message */}
+          {errorMessage !== '' && <Text style={styles.errorText}>{errorMessage}</Text>}
+
           <PrimaryButton label="Login" onPress={handleLogin} />
           <Text style={styles.footerText}>
             Don't have an account?{' '}
@@ -121,5 +151,11 @@ const styles = StyleSheet.create({
   linkText: {
     color: PRIMARY_COLOR,
     fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: 'center',
   },
 });

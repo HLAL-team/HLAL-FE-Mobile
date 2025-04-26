@@ -1,28 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRIMARY_COLOR } from '@/constants/colors';
-
-// Mock fallback user data
-const fallbackUser = {
-  full_name: 'John Doe',
-  image_url: 'https://example.com/image.jpg',
-};
+import { PROFILE_API } from '@/constants/api';
 
 export default function Header() {
-  const [user, setUser] = useState(fallbackUser);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Uncomment this block when the API is ready
-  /*
   useEffect(() => {
     const fetchUser = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://yourdomain.com/api/v1/users/profile');
-        const json = await response.json();
-        if (json.status && json.data) {
-          setUser(json.data);
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          console.error('No token found');
+          return;
         }
+
+        const response = await fetch(PROFILE_API, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+
+        const json = await response.json();
+        // Update to match the API response structure
+        setUser(json);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
       } finally {
@@ -32,7 +40,6 @@ export default function Header() {
 
     fetchUser();
   }, []);
-  */
 
   if (loading) {
     return <ActivityIndicator size="small" color={PRIMARY_COLOR} />;
@@ -40,10 +47,13 @@ export default function Header() {
 
   return (
     <View style={styles.container}>
-      <Image source={{ uri: user.image_url }} style={styles.avatar} />
+      <Image
+        source={{ uri: user?.avatarUrl || 'https://example.com/default-avatar.jpg' }}
+        style={styles.avatar}
+      />
       <View>
         <Text style={styles.greeting}>Assalamu’alaikum,</Text>
-        <Text style={styles.username}>{user.full_name}</Text>
+        <Text style={styles.username}>{user?.username || 'Guest'}</Text>
       </View>
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,34 +7,76 @@ import {
   ScrollView,
   SafeAreaView,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { PRIMARY_COLOR } from '@/constants/colors';
+import { TRANSACTION_API } from '@/constants/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const topupNominals = [20000, 50000, 100000, 200000, 300000, 500000];
-const sourceOptions = ['Hasanah Card', 'BSI'];
 
 export default function TopupPage() {
   const [amount, setAmount] = useState('');
   const [selectedNominal, setSelectedNominal] = useState<number | null>(null);
   const [source, setSource] = useState('');
   const [notes, setNotes] = useState('');
+  const [sources, setSources] = useState<{ id: number; name: string }[]>([]);
+  const [loadingSources, setLoadingSources] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        setLoadingSources(true);
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          Alert.alert('Error', 'No authentication token found');
+          return;
+        }
+
+        const response = await fetch(`${TRANSACTION_API}/topupmethod`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch top-up methods');
+        }
+
+        const json = await response.json();
+        setSources(json.data || []);
+      } catch (error) {
+        console.error('Failed to fetch top-up methods:', error);
+        Alert.alert('Error', 'Failed to fetch top-up methods');
+      } finally {
+        setLoadingSources(false);
+      }
+    };
+
+    fetchSources();
+  }, []);
 
   const handleTopup = () => {
     if (!selectedNominal || !source) {
-      alert('Please fill all fields');
+      Alert.alert('Error', 'Please fill all fields');
       return;
     }
 
+    // Prepare the payload to pass to the confirmation page
+    const payload = {
+      source,
+      amount: selectedNominal.toString(),
+      notes: notes || 'Topup', // Optional notes
+    };
+
+    // Navigate to the confirmation page with the payload
     router.push({
       pathname: '/confirmationTopup',
-      params: {
-        amount: selectedNominal.toString(),
-        source,
-        notes,
-      },
+      params: payload,
     });
   };
 
@@ -45,25 +87,40 @@ export default function TopupPage() {
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-                <View style={{ marginBottom: 25 }}>
-                    <Text style={{ fontSize: 14, color: '#666', marginRight: 8, position: 'absolute', top: 48, left: 0, zIndex: 1 }}>Rp</Text>
-                    <TextInput
-                        style={{ 
-                            fontSize: 36, 
-                            borderBottomColor: '#e0e0e0',
-                            borderBottomWidth: 1, 
-                            marginBottom: 8, 
-                            paddingVertical: 8, 
-                            marginTop: 40,
-                            paddingLeft: 30
-                        }}
-                        placeholder="Enter amount"
-                        keyboardType="numeric"
-                        value={amount}
-                        onChangeText={setAmount}
-                    />
-                </View>
-            
+        <View style={{ marginBottom: 25 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              color: '#666',
+              marginRight: 8,
+              position: 'absolute',
+              top: 48,
+              left: 0,
+              zIndex: 1,
+            }}
+          >
+            Rp
+          </Text>
+          <TextInput
+            style={{
+              fontSize: 36,
+              borderBottomColor: '#e0e0e0',
+              borderBottomWidth: 1,
+              marginBottom: 8,
+              paddingVertical: 8,
+              marginTop: 40,
+              paddingLeft: 30,
+            }}
+            placeholder="Enter amount"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={(value) => {
+              setAmount(value);
+              const numericValue = parseInt(value, 10);
+              setSelectedNominal(isNaN(numericValue) ? null : numericValue); // Update selectedNominal if valid
+            }}
+          />
+        </View>
 
         <View style={styles.nominalContainer}>
           {topupNominals.map((item) => (
@@ -85,16 +142,20 @@ export default function TopupPage() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Source</Text>
-          <Picker
-            selectedValue={source}
-            onValueChange={setSource}
-            style={styles.picker}
-          >
-            <Picker.Item label="Select Source" value="" />
-            {sourceOptions.map((option, index) => (
-              <Picker.Item key={index} label={option} value={option} />
-            ))}
-          </Picker>
+          {loadingSources ? (
+            <ActivityIndicator size="small" color={PRIMARY_COLOR} />
+          ) : (
+            <Picker
+              selectedValue={source}
+              onValueChange={setSource}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Source" value="" />
+              {sources.map((option) => (
+                <Picker.Item key={option.id} label={option.name} value={option.id.toString()} />
+              ))}
+            </Picker>
+          )}
         </View>
 
         <View style={styles.inputGroup}>
@@ -141,23 +202,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: PRIMARY_COLOR,
-  },
-  amountWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 16,
-  },
-  rpText: {
-    fontSize: 50,
-    marginRight: 5,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 50,
-    borderBottomColor: '#e0e0e0',
-    borderBottomWidth: 1,
-    paddingVertical: 8,
   },
   nominalContainer: {
     flexDirection: 'row',
