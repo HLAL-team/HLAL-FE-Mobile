@@ -157,7 +157,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
-    borderStyle: "dashed",
   },
   profileImage: {
     width: 110,

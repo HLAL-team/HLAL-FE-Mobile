@@ -132,11 +132,18 @@ export default function Profile() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        <ProfileImage />
+      
+<ScrollView
+  contentContainerStyle={styles.container}
+  keyboardShouldPersistTaps="handled"
+  style={{ backgroundColor: '#9ADBD7', minHeight: 20 }}  // (INI CUMA NGATUR WARNA BACKGROUND)
+>        
+<View style={{ width: '100%', position: 'relative' }}>
+      <View style={styles.profileContainer}>
+      <ProfileImage />
+        </View>
+          <View style={styles.whiteCard}>
+
 
         <View style={styles.usernameContainer}>
           {isEditing ? (
@@ -189,6 +196,8 @@ export default function Profile() {
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
+        </View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -196,10 +205,39 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 25,
-    backgroundColor: "white",
     flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    position: 'relative', // <-- ini PENTING BANGET
   },
+  profileContainer: {
+    position: 'absolute',
+    top: 35, // Bukan 0 ya, 90 atau 100 tergantung tinggi background hijau kamu
+    alignSelf: 'center',
+    zIndex: 10,
+    transform: [{ translateY: -10 }],
+    backgroundColor: 'white',
+    borderRadius: 120,
+    padding: 5,
+  },
+  whiteCard: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: 80, // ini penting supaya white card mulai di bawah foto
+    paddingTop: 80, 
+    paddingHorizontal: 20,
+    paddingBottom: 50,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 10,
+  },
+  
+
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
