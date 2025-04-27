@@ -4,8 +4,6 @@ import { Redirect } from 'expo-router';
 
 export default function Index() {
   return (
-    <AppProvider>
       <Redirect href="/onboarding" />
-    </AppProvider>
   );
 }

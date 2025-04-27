@@ -10,100 +10,78 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import React, { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PROFILE_API, EDIT_PROFILE_API } from "../../constants/api";
+import React, { useState, useEffect, useRef } from "react";
 import { PRIMARY_COLOR } from "../../constants/colors";
 import ProfileImage from "../../components/Profile/ProfileImage";
 import BioField from "../../components/Profile/BioField";
 import PasswordField from "../../components/Profile/PasswordField";
 import { useRouter } from "expo-router";
-
-interface Profile {
-  fullname: string;
-  username: string;
-  email: string;
-  phoneNumber: string;
-  accountNumber: string;
-  balance: number;
-}
+import { useAuthStore } from "@/store"; // Import auth store
 
 export default function Profile() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [password, setPassword] = useState("••••••••");
+  // Local UI state
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [password, setPassword] = useState("••••••••");
+  
+  // Prevent multiple fetch calls
+  const hasInitialized = useRef(false);
+  
+  // Router for navigation
   const router = useRouter();
+  
+  // Get user data from store
+  const user = useAuthStore(state => state.user);
+  const loading = useAuthStore(state => state.loading);
+  const error = useAuthStore(state => state.error);
+  const logout = useAuthStore(state => state.logout);
+  
+  // Get actions from store, but DON'T use them in render or effect dependencies
+  const { fetchUserProfile, updateUserProfile } = useAuthStore();
 
+  // Fetch profile data only once on component mount
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.error("No token found");
-          return;
-        }
-
-        const response = await fetch(PROFILE_API, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
-        const json = await response.json();
-        setProfile(json);
-        setNewUsername(json.username); // Pre-fill the username field
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
+    if (!hasInitialized.current) {
+      fetchUserProfile();
+      hasInitialized.current = true;
+    }
+    // Do NOT add fetchUserProfile to dependencies - that would cause infinite loops
   }, []);
+  
+  // Update local state when user data changes
+  useEffect(() => {
+    if (user && user.username) {
+      setNewUsername(user.username);
+    }
+  }, [user?.username]);
 
   const handleEditProfile = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        console.error("No token found");
+      if (!newUsername.trim()) {
+        Alert.alert("Error", "Username cannot be empty");
         return;
       }
-
+      
+      // Create form data for the profile update
       const formData = new FormData();
       formData.append("username", newUsername);
-      formData.append("password", newPassword);
-
-      const response = await fetch(EDIT_PROFILE_API, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        console.error("Error response:", errorResponse);
-        throw new Error(errorResponse.message || "Failed to update profile");
+      
+      if (newPassword) {
+        formData.append("password", newPassword);
       }
 
-      const json = await response.json();
-      setProfile((prev) => ({
-        ...prev,
-        username: json.username,
-      }));
-      Alert.alert("Success", "Profile updated successfully!");
-      setIsEditing(false);
+      // Use store action to update profile
+      const success = await updateUserProfile(formData);
+      
+      if (success) {
+        Alert.alert("Success", "Profile updated successfully!");
+        setIsEditing(false);
+        setNewPassword(""); // Clear password field after update
+      } else {
+        throw new Error("Failed to update profile");
+      }
     } catch (error) {
       console.error("Failed to update profile:", error);
       Alert.alert("Error", "Failed to update profile. Please try again.");
@@ -112,14 +90,15 @@ export default function Profile() {
 
   const handleSignOut = async () => {
     try {
-      await AsyncStorage.removeItem("authToken"); // Clear the token
-      router.replace("/login"); // Redirect to the login screen
+      // Use store action to log out
+      await logout();
+      router.replace("/login"); // Redirect to login screen
     } catch (error) {
       console.error("Failed to sign out:", error);
     }
   };
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={PRIMARY_COLOR} />
@@ -147,7 +126,7 @@ export default function Profile() {
               placeholder="Enter new username"
             />
           ) : (
-            <Text style={styles.username}>{profile?.username || "Guest"}</Text>
+            <Text style={styles.username}>{user?.username || "Guest"}</Text>
           )}
           <TouchableOpacity
             style={styles.editUsernameButton}
@@ -158,9 +137,10 @@ export default function Profile() {
         </View>
 
         <View style={styles.bioContainer}>
-          <BioField title="Full Name" value={profile?.fullname || "N/A"} />
-          <BioField title="Email" value={profile?.email || "N/A"} />
-          <BioField title="Phone" value={profile?.phoneNumber || "N/A"} />
+          <BioField title="Full Name" value={user?.fullname || "N/A"} />
+          <BioField title="Email" value={user?.email || "N/A"} />
+          <BioField title="Phone" value={user?.phoneNumber || "N/A"} />
+          
           {isEditing && (
             <TextInput
               style={styles.passwordInput}
@@ -189,6 +169,10 @@ export default function Profile() {
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
+        
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -261,5 +245,10 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  errorText: {
+    color: "#FF3B30",
+    textAlign: "center",
+    marginBottom: 15,
   },
 });
