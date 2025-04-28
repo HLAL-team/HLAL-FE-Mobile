@@ -10,116 +10,168 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import React, { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PROFILE_API, EDIT_PROFILE_API } from "../../constants/api";
+import React, { useState, useEffect, useRef } from "react";
 import { PRIMARY_COLOR } from "../../constants/colors";
 import ProfileImage from "../../components/Profile/ProfileImage";
 import BioField from "../../components/Profile/BioField";
 import PasswordField from "../../components/Profile/PasswordField";
 import { useRouter } from "expo-router";
-
-interface Profile {
-  fullname: string;
-  username: string;
-  email: string;
-  phoneNumber: string;
-  accountNumber: string;
-  balance: number;
-}
+import { useAuthStore } from "@/store"; // Import auth store
 
 export default function Profile() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [password, setPassword] = useState("••••••••");
-  const [isEditing, setIsEditing] = useState(false);
+  // Local UI state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [password, setPassword] = useState("••••••••");
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateMessageType, setUpdateMessageType] = useState<"success" | "error" | null>(null);
+  
+  // Prevent multiple fetch calls
+  const hasInitialized = useRef(false);
+  
+  // Router for navigation
   const router = useRouter();
+  
+  // Get user data from store
+  const user = useAuthStore(state => state.user);
+  const loading = useAuthStore(state => state.loading);
+  const error = useAuthStore(state => state.error);
+  const logout = useAuthStore(state => state.logout);
+  
+  // Get actions from store, but DON'T use them in render or effect dependencies
+  const { fetchUserProfile, updateUserProfile } = useAuthStore();
 
+  // Clear update message when component unmounts or when editing mode changes
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.error("No token found");
-          return;
-        }
-
-        const response = await fetch(PROFILE_API, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
-        const json = await response.json();
-        setProfile(json);
-        setNewUsername(json.username); // Pre-fill the username field
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      setUpdateMessage("");
+      setUpdateMessageType(null);
     };
+  }, [isEditingUsername, isEditingPassword]);
 
-    fetchProfile();
+  // Fetch profile data only once on component mount
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      fetchUserProfile();
+      hasInitialized.current = true;
+    }
   }, []);
+  
+  // Update local state when user data changes
+  useEffect(() => {
+    if (user && user.username) {
+      setNewUsername(user.username);
+    }
+  }, [user?.username]);
 
   const handleEditProfile = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      if (!token) {
-        console.error("No token found");
-        return;
-      }
-
+      // Clear previous update message
+      setUpdateMessage("");
+      setUpdateMessageType(null);
+      
+      // Create form data for the profile update
       const formData = new FormData();
-      formData.append("username", newUsername);
-      formData.append("password", newPassword);
-
-      const response = await fetch(EDIT_PROFILE_API, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        console.error("Error response:", errorResponse);
-        throw new Error(errorResponse.message || "Failed to update profile");
+      
+      // Only update username if editing username and it's valid
+      if (isEditingUsername) {
+        if (!newUsername.trim()) {
+          Alert.alert("Error", "Username cannot be empty");
+          return;
+        }
+        formData.append("username", newUsername);
       }
-
-      const json = await response.json();
-      setProfile((prev) => ({
-        ...prev,
-        username: json.username,
-      }));
-      Alert.alert("Success", "Profile updated successfully!");
-      setIsEditing(false);
+      
+      // Only update password if editing password and it's provided
+      if (isEditingPassword) {
+        if (!newPassword.trim()) {
+          Alert.alert("Error", "Password cannot be empty");
+          return;
+        }
+        formData.append("password", newPassword);
+      }
+  
+      // Use store action to update profile and get the response
+      const response = await updateUserProfile(formData);
+      
+      // Handle the response based on its structure
+      if (response) {
+        // Check if response has a status field
+        if (response.status === "Success") {
+          // Success case
+          setUpdateMessage(response.message || "Profile updated successfully!");
+          setUpdateMessageType("success");
+          
+          // Reset editing states
+          setIsEditingUsername(false);
+          setIsEditingPassword(false);
+          setNewPassword(""); // Clear password field after update
+          
+          // IMPORTANT: Re-fetch user profile to get the updated data
+          await fetchUserProfile();
+          
+          // Show success alert
+          Alert.alert("Success", response.message || "Profile updated successfully!");
+        } else if (response.status === "Error") {
+          // Error case with specific message
+          setUpdateMessage(response.message || "Failed to update profile.");
+          setUpdateMessageType("error");
+          
+          // Show error alert with specific message
+          Alert.alert("Error", response.message || "Failed to update profile.");
+        } else {
+          // Generic success case (backward compatibility)
+          setUpdateMessage("Profile updated successfully!");
+          setUpdateMessageType("success");
+          
+          // Reset editing states
+          setIsEditingUsername(false);
+          setIsEditingPassword(false);
+          setNewPassword("");
+          
+          // IMPORTANT: Re-fetch user profile to get the updated data
+          await fetchUserProfile();
+          
+          // Show generic success alert
+          Alert.alert("Success", "Profile updated successfully!");
+        }
+      } else {
+        throw new Error("No response received");
+      }
     } catch (error) {
       console.error("Failed to update profile:", error);
+      setUpdateMessage("Failed to update profile. Please try again.");
+      setUpdateMessageType("error");
       Alert.alert("Error", "Failed to update profile. Please try again.");
     }
   };
 
+  const handleCancelEditing = () => {
+    // Reset to original values
+    if (user?.username) {
+      setNewUsername(user.username);
+    }
+    setNewPassword("");
+    setIsEditingUsername(false);
+    setIsEditingPassword(false);
+    setUpdateMessage("");
+    setUpdateMessageType(null);
+  };
+
   const handleSignOut = async () => {
     try {
-      await AsyncStorage.removeItem("authToken"); // Clear the token
-      router.replace("/login"); // Redirect to the login screen
+      // Use store action to log out
+      await logout();
+      router.replace("/login"); // Redirect to login screen
     } catch (error) {
       console.error("Failed to sign out:", error);
     }
   };
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={PRIMARY_COLOR} />
@@ -136,10 +188,10 @@ export default function Profile() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <ProfileImage />
+        <ProfileImage avatarUrl={user?.avatarUrl} />
 
         <View style={styles.usernameContainer}>
-          {isEditing ? (
+          {isEditingUsername ? (
             <TextInput
               style={styles.usernameInput}
               value={newUsername}
@@ -147,43 +199,110 @@ export default function Profile() {
               placeholder="Enter new username"
             />
           ) : (
-            <Text style={styles.username}>{profile?.username || "Guest"}</Text>
+            <Text style={styles.username}>{user?.username || "Guest"}</Text>
           )}
           <TouchableOpacity
             style={styles.editUsernameButton}
-            onPress={() => setIsEditing(!isEditing)}
+            onPress={() => {
+              // Toggle username editing only
+              if (isEditingUsername) {
+                // Reset username to original value
+                if (user?.username) {
+                  setNewUsername(user.username);
+                }
+              }
+              setIsEditingUsername(!isEditingUsername);
+              // If we're editing username, stop editing password
+              if (!isEditingUsername) {
+                setIsEditingPassword(false);
+              }
+            }}
           >
-            <Text>{isEditing ? "Cancel" : "Edit"}</Text>
+            <Text>{isEditingUsername ? "Cancel" : "Edit"}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.bioContainer}>
-          <BioField title="Full Name" value={profile?.fullname || "N/A"} />
-          <BioField title="Email" value={profile?.email || "N/A"} />
-          <BioField title="Phone" value={profile?.phoneNumber || "N/A"} />
-          {isEditing && (
-            <TextInput
-              style={styles.passwordInput}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Enter new password"
-              secureTextEntry
-            />
-          )}
-          <PasswordField
-            password={password}
-            setPassword={setPassword}
-            showPassword={showPassword}
-            setShowPassword={setShowPassword}
-            isEditing={isEditing}
-            setIsEditing={setIsEditing}
-          />
+          <BioField title="Full Name" value={user?.fullname || "N/A"} />
+          <BioField title="Email" value={user?.email || "N/A"} />
+          <BioField title="Phone" value={user?.phoneNumber || "N/A"} />
+          
+          <View style={styles.passwordSection}>
+            <View style={styles.passwordHeader}>
+              <Text style={styles.passwordLabel}>Password</Text>
+              <TouchableOpacity
+                style={styles.editPasswordButton}
+                onPress={() => {
+                  // Toggle password editing only
+                  if (isEditingPassword) {
+                    setNewPassword("");
+                  }
+                  setIsEditingPassword(!isEditingPassword);
+                  // If we're editing password, stop editing username
+                  if (!isEditingPassword) {
+                    setIsEditingUsername(false);
+                  }
+                }}
+              >
+                <Text>{isEditingPassword ? "Cancel" : "Edit"}</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {isEditingPassword ? (
+              <View>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  secureTextEntry={!showPassword}
+                />
+                <Text style={styles.passwordHintText}>
+                  Password must be at least 8 characters and include uppercase,
+                  lowercase, digit, and special character
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.passwordValue}>••••••••</Text>
+            )}
+            
+            {isEditingPassword && (
+              <TouchableOpacity 
+                style={styles.showPasswordButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Text style={styles.showPasswordText}>
+                  {showPassword ? "Hide Password" : "Show Password"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {isEditing && (
-          <TouchableOpacity style={styles.submitButton} onPress={handleEditProfile}>
-            <Text style={styles.submitText}>Submit Changes</Text>
-          </TouchableOpacity>
+        {/* Display update message if available */}
+        {updateMessage ? (
+          <Text style={[
+            styles.updateMessage, 
+            updateMessageType === "success" ? styles.successMessage : styles.errorMessage
+          ]}>
+            {updateMessage}
+          </Text>
+        ) : null}
+
+        {/* Show response message from general store error */}
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+
+        {(isEditingUsername || isEditingPassword) && (
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancelEditing}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.submitButton} onPress={handleEditProfile}>
+              <Text style={styles.submitText}>Submit Changes</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
@@ -225,12 +344,49 @@ const styles = StyleSheet.create({
     borderBottomColor: PRIMARY_COLOR,
     flex: 1,
   },
+  passwordSection: {
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  passwordHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  passwordLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#666",
+  },
+  passwordValue: {
+    fontSize: 16,
+    color: "#333",
+    letterSpacing: 2,
+  },
+  editPasswordButton: {
+    padding: 5,
+  },
   passwordInput: {
     fontSize: 16,
     borderBottomWidth: 1,
     borderBottomColor: PRIMARY_COLOR,
-    marginVertical: 10,
-    padding: 5,
+    paddingVertical: 5,
+  },
+  passwordHintText: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 5,
+    fontStyle: "italic",
+  },
+  showPasswordButton: {
+    alignSelf: "flex-end",
+    marginTop: 8,
+    padding: 4,
+  },
+  showPasswordText: {
+    color: PRIMARY_COLOR,
+    fontSize: 12,
   },
   editUsernameButton: {
     padding: 5,
@@ -238,15 +394,34 @@ const styles = StyleSheet.create({
   bioContainer: {
     marginBottom: 30,
   },
+  actionButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
   submitButton: {
     backgroundColor: PRIMARY_COLOR,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
-    marginBottom: 15,
+    flex: 1,
+    marginLeft: 10,
+  },
+  cancelButton: {
+    backgroundColor: "#E0E0E0",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    flex: 1,
+    marginRight: 10,
   },
   submitText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  cancelButtonText: {
+    color: "#333",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -261,5 +436,24 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  errorText: {
+    color: "#FF3B30",
+    textAlign: "center",
+    marginBottom: 15,
+  },
+  updateMessage: {
+    textAlign: "center",
+    marginBottom: 15,
+    padding: 10,
+    borderRadius: 5,
+  },
+  successMessage: {
+    backgroundColor: "#E8F5E9",
+    color: "#2E7D32",
+  },
+  errorMessage: {
+    backgroundColor: "#FFEBEE",
+    color: "#C62828",
   },
 });

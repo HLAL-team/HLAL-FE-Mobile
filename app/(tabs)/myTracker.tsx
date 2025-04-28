@@ -1,55 +1,35 @@
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import IncomeOutcomeChart from "@/components/MyTracker/IncomeOutcomeChart";
-import { PROFILE_API } from "@/constants/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRIMARY_COLOR } from "@/constants/colors";
+import { useAuthStore } from "@/store"; // Import auth store
 
 const MyTracker = () => {
-  const [username, setUsername] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  // Get user data and loading state from the auth store
+  const user = useAuthStore(state => state.user);
+  const loading = useAuthStore(state => state.loading);
+  const fetchUserProfile = useAuthStore(state => state.fetchUserProfile);
+  
+  // Prevent multiple fetch calls
+  const hasInitialized = useRef(false);
+  
   useEffect(() => {
-    const fetchUsername = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.error("No token found");
-          return;
-        }
-
-        const response = await fetch(PROFILE_API, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile data");
-        }
-
-        const json = await response.json();
-        setUsername(json.username || "Guest");
-      } catch (error) {
-        console.error("Failed to fetch username:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsername();
+    // Fetch user profile only once
+    if (!hasInitialized.current) {
+      fetchUserProfile();
+      hasInitialized.current = true;
+    }
   }, []);
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        {loading ? (
+        {loading && !user ? (
           <ActivityIndicator size="large" color={PRIMARY_COLOR} />
         ) : (
           <>
             <Text style={styles.greeting}>
-              Hi, {username}
+              Hi, {user?.username || "Guest"}
             </Text>
             <Text style={styles.subheading}>
               Here's your transaction journey.
