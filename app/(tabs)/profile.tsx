@@ -14,7 +14,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { PRIMARY_COLOR } from "../../constants/colors";
 import ProfileImage from "../../components/Profile/ProfileImage";
 import BioField from "../../components/Profile/BioField";
-import PasswordField from "../../components/Profile/PasswordField";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/store"; // Import auth store
 
@@ -28,9 +27,11 @@ export default function Profile() {
   const [password, setPassword] = useState("••••••••");
   const [updateMessage, setUpdateMessage] = useState("");
   const [updateMessageType, setUpdateMessageType] = useState<"success" | "error" | null>(null);
+  const [isImageUpdating, setIsImageUpdating] = useState(false);
   
   // Prevent multiple fetch calls
   const hasInitialized = useRef(false);
+  const isMounted = useRef(true);
   
   // Router for navigation
   const router = useRouter();
@@ -44,12 +45,21 @@ export default function Profile() {
   // Get actions from store, but DON'T use them in render or effect dependencies
   const { fetchUserProfile, updateUserProfile } = useAuthStore();
 
-  // Clear update message when component unmounts or when editing mode changes
+  // Component mount/unmount handling
   useEffect(() => {
+    isMounted.current = true;
+    
     return () => {
+      isMounted.current = false;
       setUpdateMessage("");
       setUpdateMessageType(null);
     };
+  }, []);
+
+  // Clear update message when editing mode changes
+  useEffect(() => {
+    setUpdateMessage("");
+    setUpdateMessageType(null);
   }, [isEditingUsername, isEditingPassword]);
 
   // Fetch profile data only once on component mount
@@ -66,6 +76,31 @@ export default function Profile() {
       setNewUsername(user.username);
     }
   }, [user?.username]);
+
+  // Handle profile image update
+  const handleProfileImageUpdate = async () => {
+    setIsImageUpdating(true);
+    try {
+      // The image upload will be handled in the ProfileImage component
+      // After upload completes, we need to refresh the profile data
+      await fetchUserProfile();
+      
+      if (isMounted.current) {
+        setUpdateMessage("Profile image updated successfully!");
+        setUpdateMessageType("success");
+      }
+    } catch (error) {
+      console.error("Failed to update profile image:", error);
+      if (isMounted.current) {
+        setUpdateMessage("Failed to update profile image.");
+        setUpdateMessageType("error");
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsImageUpdating(false);
+      }
+    }
+  };
 
   const handleEditProfile = async () => {
     try {
@@ -94,9 +129,17 @@ export default function Profile() {
         formData.append("password", newPassword);
       }
   
+      // First reset edit states BEFORE API call to prevent React Native view state errors
+      const wasEditingPassword = isEditingPassword;
+      setIsEditingUsername(false);
+      setIsEditingPassword(false);
+
       // Use store action to update profile and get the response
       const response = await updateUserProfile(formData);
       
+      // Only continue if component is still mounted
+      if (!isMounted.current) return;
+
       // Handle the response based on its structure
       if (response) {
         // Check if response has a status field
@@ -105,47 +148,71 @@ export default function Profile() {
           setUpdateMessage(response.message || "Profile updated successfully!");
           setUpdateMessageType("success");
           
-          // Reset editing states
-          setIsEditingUsername(false);
-          setIsEditingPassword(false);
-          setNewPassword(""); // Clear password field after update
+          // Clear password field after update
+          if (wasEditingPassword) {
+            setNewPassword(""); 
+          }
           
           // IMPORTANT: Re-fetch user profile to get the updated data
           await fetchUserProfile();
           
-          // Show success alert
-          Alert.alert("Success", response.message || "Profile updated successfully!");
+          // Show success alert after a slight delay to prevent view state errors
+          setTimeout(() => {
+            if (isMounted.current) {
+              Alert.alert("Success", response.message || "Profile updated successfully!");
+            }
+          }, 100);
         } else if (response.status === "Error") {
           // Error case with specific message
           setUpdateMessage(response.message || "Failed to update profile.");
           setUpdateMessageType("error");
           
-          // Show error alert with specific message
-          Alert.alert("Error", response.message || "Failed to update profile.");
+          // Show error alert after a slight delay
+          setTimeout(() => {
+            if (isMounted.current) {
+              Alert.alert("Error", response.message || "Failed to update profile.");
+            }
+          }, 100);
         } else {
           // Generic success case (backward compatibility)
           setUpdateMessage("Profile updated successfully!");
           setUpdateMessageType("success");
           
-          // Reset editing states
-          setIsEditingUsername(false);
-          setIsEditingPassword(false);
-          setNewPassword("");
+          // Clear password field after update
+          if (wasEditingPassword) {
+            setNewPassword("");
+          }
           
           // IMPORTANT: Re-fetch user profile to get the updated data
           await fetchUserProfile();
           
-          // Show generic success alert
-          Alert.alert("Success", "Profile updated successfully!");
+          // Show generic success alert after delay
+          setTimeout(() => {
+            if (isMounted.current) {
+              Alert.alert("Success", "Profile updated successfully!");
+            }
+          }, 100);
         }
       } else {
         throw new Error("No response received");
       }
     } catch (error) {
       console.error("Failed to update profile:", error);
-      setUpdateMessage("Failed to update profile. Please try again.");
-      setUpdateMessageType("error");
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      
+      if (isMounted.current) {
+        setUpdateMessage("Failed to update profile. Please try again.");
+        setUpdateMessageType("error");
+        
+        // Reset edit states on error
+        setIsEditingUsername(false);
+        setIsEditingPassword(false);
+        
+        setTimeout(() => {
+          if (isMounted.current) {
+            Alert.alert("Error", "Failed to update profile. Please try again.");
+          }
+        }, 100);
+      }
     }
   };
 
@@ -188,7 +255,11 @@ export default function Profile() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <ProfileImage avatarUrl={user?.avatarUrl} />
+        <ProfileImage 
+          avatarUrl={user?.avatarUrl} 
+          onImageUpdated={handleProfileImageUpdate}
+          isUpdating={isImageUpdating}
+        />
 
         <View style={styles.usernameContainer}>
           {isEditingUsername ? (
@@ -314,6 +385,7 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
+  // Your existing styles...
   container: {
     padding: 25,
     backgroundColor: "white",
