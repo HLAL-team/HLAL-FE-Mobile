@@ -1,10 +1,11 @@
-// ProfileImage.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Alert, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PRIMARY_COLOR } from '../../constants/colors';
+import { BASE_URL, EDIT_PROFILE_API } from '../../constants/api'; // Add PROFILE_API import
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProfileImageProps {
   avatarUrl?: string;
@@ -20,13 +21,18 @@ export default function ProfileImage({
   isUpdating = false 
 }: ProfileImageProps) {
   const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   // Get user data and update function from auth store
   const user = useAuthStore(state => state.user);
-  const updateUserProfile = useAuthStore(state => state.updateUserProfile);
   
   // Use fullName from props if provided, otherwise from auth store
   const fullName = propFullName || user?.fullname || '';
+
+  // Debug effect to monitor avatarUrl changes
+  useEffect(() => {
+    setImageError(false); // Reset error state when avatar URL changes
+  }, [avatarUrl]);
   
   // Generate initials from full name
   const getInitials = (name: string) => {
@@ -87,28 +93,82 @@ export default function ProfileImage({
     try {
       setUploading(true);
       
+      // Get auth token
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
       // Create form data with image
       const formData = new FormData();
       const uriParts = uri.split('.');
       const fileType = uriParts[uriParts.length - 1];
       
+      // Make sure the field name matches what your API expects
       formData.append('avatar', {
         uri,
         name: `profile-photo.${fileType}`,
         type: `image/${fileType}`,
       } as any);
       
-      // Use our Zustand store to update the profile
-      await updateUserProfile(formData);
+      // Use the EDIT_PROFILE_API endpoint instead of PROFILE_API
+      const response = await fetch(EDIT_PROFILE_API, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Do NOT set Content-Type when uploading files with FormData
+        },
+        body: formData,
+      });
+      
+      // Log the full response for debugging
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        let errorText;
+        try {
+          // Try to get detailed error as JSON
+          const errorData = await response.json();
+          errorText = JSON.stringify(errorData);
+        } catch (e) {
+          // Fall back to text if not JSON
+          errorText = await response.text();
+        }
+        console.error('Upload error:', response.status, errorText);
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
+      
+      // Parse the response
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log('Upload success:', responseData);
+      } catch (e) {
+        console.log('Response was not JSON:', await response.text());
+      }
       
       // Call the provided callback to refresh profile data in the parent
       if (onImageUpdated) {
         await onImageUpdated();
       }
       
+      // Reset error state after successful upload
+      setImageError(false);
+      
+      // Show success message
+      Alert.alert(
+        'Success', 
+        'Profile image updated successfully!'
+      );
+      
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to update profile image');
+      Alert.alert(
+        'Upload Failed', 
+        error instanceof Error 
+          ? error.message 
+          : 'Failed to update profile image. Please try again.'
+      );
     } finally {
       setUploading(false);
     }
@@ -118,16 +178,32 @@ export default function ProfileImage({
   const avatarBgColor = getColorFromName(fullName);
   const initials = getInitials(fullName);
   
+  // Construct the correct image URL using BASE_URL
+  const getImageUrl = (url?: string) => {
+    if (!url) return '';
+    
+    if (url.startsWith('http')) {
+      return url;
+    } else {
+      // Ensure path starts with '/'
+      const path = url.startsWith('/') ? url : `/${url}`;
+      return `${BASE_URL}${path}`;
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <View style={styles.avatarContainer}>
-        {avatarUrl ? (
+        {avatarUrl && !imageError ? (
           <Image
-            source={{ uri: avatarUrl.startsWith('http') 
-              ? avatarUrl 
-              : `https://api.hlal.com${avatarUrl}` // Replace with your actual API base URL
-            }}
+            source={{ uri: getImageUrl(avatarUrl) }}
             style={styles.avatar}
+            onError={(e) => {
+              console.log('Image loading error:', e.nativeEvent.error);
+              setImageError(true);
+            }}
+            // Add a key to force re-render when the URL changes
+            key={avatarUrl}
           />
         ) : (
           <View style={[styles.initialAvatar, { backgroundColor: avatarBgColor }]}>
@@ -169,6 +245,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#f0f0f0', // Light background to see loading issues
   },
   initialAvatar: {
     width: '100%',
@@ -206,5 +283,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  debugText: {
+    fontSize: 8,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: -5,
+    marginBottom: 5,
+    width: '80%',
   }
 });

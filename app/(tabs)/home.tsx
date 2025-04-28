@@ -1,6 +1,6 @@
-// app/home.tsx
-import { View, StyleSheet } from "react-native";
-import React from "react";
+// app/(tabs)/home.tsx
+import { View, StyleSheet, ScrollView, RefreshControl } from "react-native";
+import React, { useState, useCallback } from "react";
 import Header from "@/components/Home/Header";
 import BalanceCard from "@/components/Home/BalanceCard";
 import TopupTransferButton from "@/components/Home/TopupTransferButton";
@@ -8,11 +8,49 @@ import { FontAwesome6 } from "@expo/vector-icons";
 import { Feather } from "@expo/vector-icons";
 import FavoriteList from "@/components/Home/FavoriteList";
 import RecentTransaction from "@/components/Home/RecentTransaction";
+import { useAuthStore, useTransactionStore, useFavoriteStore } from "@/store";
+import { PRIMARY_COLOR } from "@/constants/colors";
 
 export default function Home() {
-  return (
+  // State for refresh control
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Get refresh functions from stores
+  const fetchUserProfile = useAuthStore(state => state.fetchUserProfile);
+  const fetchRecentTransactions = useTransactionStore(state => state.fetchRecentTransactions);
+  const fetchFavorites = useFavoriteStore(state => state.fetchFavorites);
+
+  // Refresh function that updates all data
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
     
-    <View style={styles.container}>
+    try {
+      // Refresh all data in parallel
+      await Promise.all([
+        fetchUserProfile(),
+        fetchRecentTransactions(),
+        fetchFavorites(),
+      ]);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchUserProfile, fetchRecentTransactions, fetchFavorites]);
+
+  return (
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          colors={['#19918F']} // Using your PRIMARY_COLOR
+          tintColor={'#19918F'}
+        />
+      }
+    >
       <Header />
       <BalanceCard />
       <View style={styles.buttonRow}>
@@ -31,15 +69,18 @@ export default function Home() {
       </View>
       <FavoriteList />
       <RecentTransaction />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     flex: 1,
     backgroundColor: '#fff',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40, // Extra padding at the bottom for better scrolling
   },
   buttonRow: {
     flexDirection: 'row',
@@ -47,4 +88,3 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 });
-

@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FAV_API } from "@/constants/api";
+import { FAV_API, BASE_URL } from "@/constants/api"; // Added BASE_URL import
 import { useRouter } from "expo-router";
 
 interface FavoriteUser {
@@ -27,16 +27,34 @@ export default function FavoriteList() {
   const [favorites, setFavorites] = useState<FavoriteUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Add state to track which avatar images failed to load
+  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
+  
   const router = useRouter();
 
   useEffect(() => {
     fetchFavorites();
   }, []);
 
+  // Added this function to correctly construct image URLs
+  const getImageUrl = (url?: string) => {
+    if (!url) return '';
+    
+    if (url.startsWith('http')) {
+      return url;
+    } else {
+      // Ensure path starts with '/'
+      const path = url.startsWith('/') ? url : `/${url}`;
+      return `${BASE_URL}${path}`;
+    }
+  };
+
   const fetchFavorites = async () => {
     try {
       setLoading(true);
       setError(null);
+      // Reset failed images when refreshing
+      setFailedImages({});
 
       const token = await AsyncStorage.getItem("authToken");
       if (!token) {
@@ -63,6 +81,10 @@ export default function FavoriteList() {
         const sortedFavorites = [...data.data]
           .sort((a, b) => b.id - a.id)
           .slice(0, 6);
+        
+        console.log("Fetched favorites with avatars:", 
+          sortedFavorites.map(f => ({id: f.id, avatar: f.avatarUrl})));
+          
         setFavorites(sortedFavorites);
       } else {
         throw new Error("Invalid data format received");
@@ -73,6 +95,38 @@ export default function FavoriteList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Updated Helper function to handle avatar URLs properly
+  const getAvatarSource = (user: FavoriteUser) => {
+    // Check if we've already marked this image as failed
+    if (failedImages[user.id]) {
+      return { 
+        uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullname)}&background=19918F&color=fff&size=100` 
+      };
+    }
+    
+    // Check if avatar URL exists and is not empty
+    if (user.avatarUrl && user.avatarUrl.trim() !== '') {
+      // Use the getImageUrl function to construct proper URL
+      const avatarUrl = getImageUrl(user.avatarUrl);
+      console.log("Avatar URL constructed:", avatarUrl);
+      return { uri: avatarUrl };
+    }
+    
+    // Fallback to generated avatar
+    return { 
+      uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullname)}&background=19918F&color=fff&size=100` 
+    };
+  };
+
+  const handleImageError = (userId: number) => {
+    console.log(`Avatar image failed to load for user ID: ${userId}`);
+    // Mark this image as failed so we use the fallback next time
+    setFailedImages(prev => ({
+      ...prev,
+      [userId]: true
+    }));
   };
 
   const handleFavoriteSelect = (favorite: FavoriteUser) => {
@@ -144,10 +198,9 @@ export default function FavoriteList() {
               activeOpacity={0.7}
             >
               <Image 
-                source={{ 
-                  uri: item.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.fullname)}&background=19918F&color=fff` 
-                }} 
-                style={styles.avatar} 
+                source={getAvatarSource(item)}
+                style={styles.avatar}
+                onError={() => handleImageError(item.id)}
               />
               <View style={styles.textContainer}>
                 <Text style={styles.name} numberOfLines={1}>

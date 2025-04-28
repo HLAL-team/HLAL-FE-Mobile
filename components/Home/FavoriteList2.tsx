@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FAV_API } from "@/constants/api";
+import { FAV_API, BASE_URL } from "@/constants/api"; // Import BASE_URL
 import { Feather, Ionicons } from "@expo/vector-icons";
 
 interface FavoriteUser {
@@ -32,15 +32,64 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  // Add state to track which avatar images failed to load
+  const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     fetchFavorites();
   }, []);
 
+  // Function to correctly construct image URLs
+  const getImageUrl = (url?: string) => {
+    if (!url) return '';
+    
+    if (url.startsWith('http')) {
+      return url;
+    } else {
+      // Ensure path starts with '/'
+      const path = url.startsWith('/') ? url : `/${url}`;
+      return `${BASE_URL}${path}`;
+    }
+  };
+
+  // Helper function to handle avatar URLs properly
+  const getAvatarSource = (user: FavoriteUser) => {
+    // Check if we've already marked this image as failed
+    if (failedImages[user.id]) {
+      return { 
+        uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullname)}&background=19918F&color=fff&size=100` 
+      };
+    }
+    
+    // Check if avatar URL exists and is not empty
+    if (user.avatarUrl && user.avatarUrl.trim() !== '') {
+      // Use the getImageUrl helper to construct the proper URL
+      const avatarUrl = getImageUrl(user.avatarUrl);
+      console.log("Avatar URL constructed:", avatarUrl);
+      return { uri: avatarUrl };
+    }
+    
+    // Fallback to generated avatar
+    return { 
+      uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullname)}&background=19918F&color=fff&size=100` 
+    };
+  };
+
+  const handleImageError = (userId: number) => {
+    console.log(`Avatar image failed to load for user ID: ${userId}`);
+    // Mark this image as failed so we use the fallback next time
+    setFailedImages(prev => ({
+      ...prev,
+      [userId]: true
+    }));
+  };
+
   const fetchFavorites = async () => {
     try {
       setLoading(true);
       setError(null);
+      // Reset failed images when refreshing
+      setFailedImages({});
 
       const token = await AsyncStorage.getItem("authToken");
       if (!token) {
@@ -67,6 +116,10 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
         const sortedFavorites = [...data.data]
           .sort((a, b) => b.id - a.id)
           .slice(0, 6);
+          
+        console.log("Fetched favorites with avatars:", 
+          sortedFavorites.map(f => ({id: f.id, avatar: f.avatarUrl})));
+          
         setFavorites(sortedFavorites);
       } else {
         throw new Error("Invalid data format received");
@@ -89,7 +142,6 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
         throw new Error("Authentication required");
       }
 
-      // Using the correct API endpoint with query parameter
       const response = await fetch(`${FAV_API}?favoriteAccountNumber=${accountNumber}`, {
         method: "DELETE",
         headers: {
@@ -101,7 +153,6 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
         throw new Error(`Failed to delete favorite: ${response.status}`);
       }
 
-      // Update local state to remove the deleted favorite
       setFavorites(prevFavorites => prevFavorites.filter(fav => fav.id !== id));
       
     } catch (err) {
@@ -116,14 +167,12 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
   };
 
   const handleFavoriteSelect = (favorite: FavoriteUser) => {
-    // Instead of navigating, call the parent component's callback
     if (onSelectFavorite) {
       onSelectFavorite(favorite.accountNumber, favorite.fullname);
     }
   };
 
   const handleDeletePress = (id: number, accountNumber: string, event: any) => {
-    // Prevent triggering the card's onPress
     event.stopPropagation();
     
     Alert.alert(
@@ -195,10 +244,9 @@ export default function FavoriteList2({ onSelectFavorite }: FavoriteList2Props) 
               activeOpacity={0.7}
             >
               <Image 
-                source={{ 
-                  uri: item.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.fullname)}&background=19918F&color=fff` 
-                }} 
-                style={styles.avatar} 
+                source={getAvatarSource(item)}
+                style={styles.avatar}
+                onError={() => handleImageError(item.id)}
               />
               <View style={styles.textContainer}>
                 <Text style={styles.name} numberOfLines={1}>

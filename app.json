@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "HLAL-FE-Mobile-New",
-    "slug": "HLAL-FE-Mobile-New",
+    "name": "HLAL",
+    "slug": "hlal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -23,7 +23,8 @@
       "permissions": [
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.HLAL"
     },
     "web": {
       "bundler": "metro",
@@ -44,6 +45,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "96b410c3-36bc-42bc-98aa-b05f0209476a"
+      }
+    },
+    "owner": "sayyidan-i"
   }
 }

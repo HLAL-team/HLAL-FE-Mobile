@@ -1,10 +1,13 @@
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
-import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import IncomeOutcomeChart from "@/components/MyTracker/IncomeOutcomeChart";
 import { PRIMARY_COLOR } from "@/constants/colors";
 import { useAuthStore } from "@/store"; // Import auth store
 
 const MyTracker = () => {
+  // Add refreshing state
+  const [refreshing, setRefreshing] = useState(false);
+  
   // Get user data and loading state from the auth store
   const user = useAuthStore(state => state.user);
   const loading = useAuthStore(state => state.loading);
@@ -21,8 +24,39 @@ const MyTracker = () => {
     }
   }, []);
 
+  // Add refresh handler function
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    
+    try {
+      // Refresh user profile data
+      await fetchUserProfile();
+      
+      // Force chart to refresh by remounting it
+      setChartKey(prev => prev + 1);
+      
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchUserProfile]);
+  
+  // Add key state to force remount the chart component
+  const [chartKey, setChartKey] = useState(0);
+
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <ScrollView 
+      contentContainerStyle={styles.scrollContainer}
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[PRIMARY_COLOR]}
+          tintColor={PRIMARY_COLOR}
+        />
+      }
+    >
       <View style={styles.container}>
         {loading && !user ? (
           <ActivityIndicator size="large" color={PRIMARY_COLOR} />
@@ -35,7 +69,7 @@ const MyTracker = () => {
               Here's your transaction journey.
             </Text>
             <View style={styles.chartContainer}>
-              <IncomeOutcomeChart />
+              <IncomeOutcomeChart key={chartKey} />
             </View>
           </>
         )}
