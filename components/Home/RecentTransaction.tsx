@@ -1,58 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
-import { TRANSACTION_API } from "../../constants/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRIMARY_COLOR } from "../../constants/colors";
-
-interface Transaction {
-  transactionId: number;
-  sender: string;
-  recipient: string;
-  amount: number;
-  transactionType: string;
-  transactionDateFormatted: string;
-}
+import { useTransactionStore, useAuthStore } from "@/store"; // Import both stores
 
 export default function RecentTransactionList() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Get transactions data and actions from the transaction store
+  const recentTransactions = useTransactionStore(state => state.recentTransactions);
+  const loadingTransactions = useTransactionStore(state => state.loadingTransactions);
+  const fetchRecentTransactions = useTransactionStore(state => state.fetchRecentTransactions);
+  
+  // Get user data from auth store to check if transfers are incoming or outgoing
+  const user = useAuthStore(state => state.user);
+  const loadingUser = useAuthStore(state => state.loading);
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-          console.error("No token found");
-          return;
-        }
-
-        const response = await fetch(
-          `${TRANSACTION_API}?sortBy=transactionDate&order=desc&size=3`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch transactions");
-        }
-
-        const json = await response.json();
-        setTransactions(json.data || []);
-      } catch (error) {
-        console.error("Failed to fetch transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
+    // Fetch transactions when component mounts
+    fetchRecentTransactions();
+    // No need to handle token, errors or loading states - the store does it for us!
   }, []);
 
-  if (loading) {
+  if (loadingTransactions || loadingUser) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={PRIMARY_COLOR} />
@@ -60,7 +27,7 @@ export default function RecentTransactionList() {
     );
   }
 
-  if (transactions.length === 0) {
+  if (recentTransactions.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No recent transactions found.</Text>
@@ -72,7 +39,7 @@ export default function RecentTransactionList() {
     <View style={styles.container}>
       <Text style={styles.title}>Recent Transactions</Text>
       <FlatList
-        data={transactions}
+        data={recentTransactions}
         keyExtractor={(item) => item.transactionId.toString()}
         renderItem={({ item }) => {
           let label = "";
@@ -80,13 +47,30 @@ export default function RecentTransactionList() {
           let amountPrefix = "+";
 
           if (item.transactionType === "Transfer") {
-            label = `${item.recipient}`;
-            amountColor = "red";
-            amountPrefix = "-";
+            // Check if this is an incoming transfer (recipient matches the user's fullname)
+            const isIncomingTransfer = user?.fullname && 
+                                      item.recipient.toLowerCase() === user.fullname.toLowerCase();
+            
+            if (isIncomingTransfer) {
+              // Incoming transfer (money received) - GREEN
+              label = `From: ${item.sender}`;
+              amountColor = "green";
+              amountPrefix = "+";
+            } else {
+              // Outgoing transfer (money sent) - RED
+              label = `To: ${item.recipient}`;
+              amountColor = "red";
+              amountPrefix = "-";
+            }
           } else if (item.transactionType === "Top Up") {
+            // Top-up always adds money - GREEN
             label = "Top up";
             amountColor = "green";
             amountPrefix = "+";
+          } else {
+            // Other transaction types
+            label = item.transactionType;
+            // Default to green/+ for other types (can be customized as needed)
           }
 
           return (
@@ -109,6 +93,7 @@ export default function RecentTransactionList() {
 }
 
 const styles = StyleSheet.create({
+  // All your existing styles remain the same
   container: {
     marginTop: 24,
   },

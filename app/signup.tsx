@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,69 +8,76 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import CheckboxWithText from '../components/CheckboxWithText';
 import { useRouter } from 'expo-router';
 import { PRIMARY_COLOR } from '../constants/colors';
-import { REGISTER_API } from '../constants/api';
+import { useAuthStore } from '@/store'; // Import auth store
 
 export default function SignUpScreen() {
   const router = useRouter();
 
+  // Local form state
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
   const [agree, setAgree] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  
+  // Get state and actions from auth store
+  const loading = useAuthStore(state => state.loading);
+  const error = useAuthStore(state => state.error);
+  const register = useAuthStore(state => state.register);
+  const clearError = useAuthStore(state => state.clearError);
+  
+  // Clear any error messages when component unmounts
+  useEffect(() => {
+    return () => clearError();
+  }, []);
 
   const handleSubmit = async () => {
-    setErrorMessage('');
+    // Clear previous errors
+    clearError();
 
     if (!agree) {
-      setErrorMessage('Please agree to the Terms & Conditions.');
+      // Using local validation for agreement since this is UI specific
+      Alert.alert('Error', 'Please agree to the Terms & Conditions.');
       return;
     }
 
-    try {
-      const response = await fetch(REGISTER_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullname,
-          email,
-          username,
-          password,
-          phoneNumber: phone,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.status === 'Success') {
-        // On success, show success message
-        Alert.alert(
-          'Registration Successful',
-          'Your account has been created. Please log in to continue.',
-          [
-            {
-              text: 'Go to Login',
-              onPress: () => router.push('/login'),
-            },
-          ]
-        );
-      } else {
-        // Show error if registration fails
-        setErrorMessage(data.message || 'Registration failed.');
-      }
-    } catch (err) {
-      setErrorMessage('Network error. Please try again.');
+    // Validate form fields
+    if (!fullname || !email || !password || !username || !phone) {
+      Alert.alert('Error', 'All fields are required.');
+      return;
     }
+
+    // Use store action to register
+    const success = await register({
+      fullname,
+      email,
+      username,
+      password,
+      phoneNumber: phone,
+    });
+    
+    if (success) {
+      // On success, show success message and navigate to login
+      Alert.alert(
+        'Registration Successful',
+        'Your account has been created. Please log in to continue.',
+        [
+          {
+            text: 'Go to Login',
+            onPress: () => router.push('/login'),
+          },
+        ]
+      );
+    }
+    // No need to handle errors here - the store will update the error state
   };
 
   return (
@@ -96,48 +103,74 @@ export default function SignUpScreen() {
             <InputField
               label="Full Name"
               value={fullname}
-              onChangeText={setFullname}
+              onChangeText={(text) => {
+                setFullname(text);
+                if (error) clearError();
+              }}
+              editable={!loading}
             />
             <InputField
               label="Username"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(text) => {
+                setUsername(text);
+                if (error) clearError();
+              }}
+              editable={!loading}
             />
             <InputField
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (error) clearError();
+              }}
               keyboardType="email-address"
+              editable={!loading}
             />
             <InputField
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (error) clearError();
+              }}
               secureTextEntry
+              editable={!loading}
             />
             <InputField
               label="Phone Number"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => {
+                setPhone(text);
+                if (error) clearError();
+              }}
               keyboardType="phone-pad"
+              editable={!loading}
             />
           </View>
         </ScrollView>
 
-        {/* Error message */}
-        {errorMessage !== '' && <Text style={styles.errorText}>{errorMessage}</Text>}
+        {/* Error message from store */}
+        {error && <Text style={styles.errorText}>{error}</Text>}
 
         <View style={styles.footer}>
-          <CheckboxWithText checked={agree} onPress={() => setAgree(!agree)} />
+          <CheckboxWithText 
+            checked={agree} 
+            onPress={() => setAgree(!agree)}
+            disabled={loading} 
+          />
           <PrimaryButton
-            label="Sign Up"
+            label={loading ? "Creating Account..." : "Sign Up"}
             onPress={handleSubmit}
+            disabled={loading || !fullname || !email || !password || !username || !phone || !agree}
+            icon={loading ? () => <ActivityIndicator size="small" color="#fff" /> : undefined}
           />
           <Text style={styles.footerText}>
             Already have an account?{' '}
             <Text
-              onPress={() => router.push('/login')}
-              style={styles.linkText}
+              onPress={() => !loading && router.push('/login')}
+              style={[styles.linkText, loading && styles.disabledLink]}
             >
               Log In
             </Text>
@@ -191,6 +224,9 @@ const styles = StyleSheet.create({
   linkText: {
     color: PRIMARY_COLOR,
     fontWeight: '600',
+  },
+  disabledLink: {
+    opacity: 0.5,
   },
   errorText: {
     color: 'red',

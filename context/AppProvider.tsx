@@ -1,40 +1,43 @@
 import React, { ReactNode, useEffect, useState } from "react";
-import { FavoriteProvider } from "./FavoriteContext";
-import { UserProvider } from "./UserContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
+import { PRIMARY_COLOR } from "@/constants/colors";
+import { initializeStores, useAuthStore } from "@/store"; // Import from our new store
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const router = useRouter();
+  
+  // Get auth state from our Zustand store
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const initialized = useAuthStore(state => state.initialized);
 
   useEffect(() => {
-    const checkToken = async () => {
+    const initialize = async () => {
       try {
-        const token = await AsyncStorage.getItem("authToken");
-        if (token) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-          router.replace("/login"); // Redirect to login if no token
-        }
-      } catch (error) {
-        console.error("Error checking token:", error);
-        setIsAuthenticated(false);
-        router.replace("/login"); // Redirect to login on error
+        // Initialize our stores
+        await initializeStores();
+      } finally {
+        setInitializing(false);
       }
     };
 
-    checkToken();
+    initialize();
   }, []);
 
-  if (!isAuthenticated) {
-    return null;
+  useEffect(() => {
+    if (!initializing && initialized && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [initializing, initialized, isAuthenticated, router]);
+
+  if (initializing || !initialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+      </View>
+    );
   }
 
-  return (
-    <UserProvider>
-      <FavoriteProvider>{children}</FavoriteProvider>
-    </UserProvider>
-  );
+  return <>{children}</>;
 };

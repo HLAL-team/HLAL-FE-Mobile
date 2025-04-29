@@ -23,6 +23,8 @@ export default function TabLayout() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'myTracker') {
             iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'history') {
+            iconName = focused ? 'receipt' : 'receipt-outline'; // Added History icon
           } else if (route.name === 'profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
