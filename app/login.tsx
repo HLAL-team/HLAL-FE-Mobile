@@ -74,7 +74,7 @@ export default function LoginScreen() {
 
           <View style={styles.formSection}>
             <InputField
-              label="Email"
+              label="Email or username"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"

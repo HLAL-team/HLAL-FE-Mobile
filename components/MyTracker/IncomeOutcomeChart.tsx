@@ -17,14 +17,17 @@ import { BarChart } from "react-native-gifted-charts";
 import { PRIMARY_COLOR } from "@/constants/colors";
 import { TRANSACTION_API } from "../../constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthStore } from "../../store/useAuthStore";
 
-// Define Transaction interface with the new fields needed for transfer logic
+// Define Transaction interface with fields needed for transfer logic
 interface Transaction {
+  transactionId?: number;
   transactionDate: string;
   transactionType: string;
   amount: number;
   sender?: string;
   recipient?: string;
+  description?: string;
 }
 
 // Define a ref type for the chart for refresh functionality
@@ -39,6 +42,9 @@ interface ChartProps {
 
 const FinancialChart = forwardRef<ChartRefType, ChartProps>(
   ({ userFullname = "" }, ref) => {
+    // Get authenticated user from the store
+    const authUser = useAuthStore(state => state.user);
+    
     // State management
     const [selectedType, setSelectedType] = useState<
       "daily" | "weekly" | "monthly" | "quarterly"
@@ -75,7 +81,7 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
       return `Rp${formattedNumber}`;
     };
 
-    // Add this function to calculate totals consistently
+    // Calculate totals consistently using the same transfer logic
     const calculateTotals = (transactions: Transaction[]) => {
       let income = 0;
       let outcome = 0;
@@ -95,14 +101,12 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           // Parse amount to ensure it's a number
           const amount = parseFloat(transaction.amount as any) || 0;
 
-          // Use the same logic as in our aggregation functions
           if (transaction.transactionType === "Transfer") {
             // Check if this is an incoming transfer (money received)
             const isIncomingTransfer =
-              userFullname &&
+              authUser?.fullname &&
               transaction.recipient &&
-              transaction.recipient.toLowerCase() ===
-                userFullname.toLowerCase();
+              transaction.recipient.toLowerCase() === authUser.fullname.toLowerCase();
 
             if (isIncomingTransfer) {
               // Incoming transfer - count as income
@@ -119,7 +123,7 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
             outcome += amount;
           }
         } catch (error) {
-          console.error("Error processing transaction for totals:", error);
+          // Silent error handling
         }
       });
 
@@ -160,8 +164,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           url = `${TRANSACTION_API}/range?year=${Number(year)}&type=quarterly`;
         }
 
-        console.log("Fetching API URL:", url);
-
         // Get authentication token
         const token = await AsyncStorage.getItem("authToken");
         if (!token) {
@@ -179,7 +181,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
         // Special handling for 404 - treat as "no data" instead of error
         if (response.status === 404) {
-          console.log("No transaction data available for the selected period");
           setTransactions([]);
           setTotalIncome(0);
           setTotalOutcome(0);
@@ -198,7 +199,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
         const text = await response.text();
 
         if (!text || text.trim() === "") {
-          console.log("Empty response received, treating as no data");
           setTransactions([]);
           setTotalIncome(0);
           setTotalOutcome(0);
@@ -207,10 +207,8 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
         try {
           const json = JSON.parse(text);
-          console.log("API response parsed successfully");
 
           if (!json.data) {
-            console.log("No data property in response");
             setTransactions([]);
             setTotalIncome(0);
             setTotalOutcome(0);
@@ -224,24 +222,12 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           const { income, outcome } = calculateTotals(json.data);
           setTotalIncome(income);
           setTotalOutcome(outcome);
-
-          // Log for debugging
-          console.log(
-            `Calculated totals: Income=${income}, Outcome=${outcome}`
-          );
-          console.log(
-            `API totals: Income=${json.totalIncome || 0}, Outcome=${
-              json.totalOutcome || 0
-            }`
-          );
         } catch (parseError) {
-          console.error("Error parsing JSON:", parseError);
           setTransactions([]);
           setTotalIncome(0);
           setTotalOutcome(0);
         }
       } catch (error) {
-        console.error("Error in fetch operation:", error);
         setError(`Failed to load data: ${error.message}`);
         setTransactions([]);
         setTotalIncome(0);
@@ -254,7 +240,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
     // Expose the refresh method via ref
     useImperativeHandle(ref, () => ({
       refresh: async () => {
-        console.log("Chart refresh called");
         await fetchTransactions();
         return;
       },
@@ -386,19 +371,10 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
     // Updated aggregateByDay function that handles transfer logic
     const aggregateByDay = (transactions: Transaction[]) => {
-      console.log(
-        "Starting daily aggregation with transactions:",
-        transactions?.length
-      );
-
       // Get the days in the selected week
       const selectedMonthNum = parseInt(month);
       const selectedYearNum = parseInt(year);
       const selectedWeekNum = parseInt(week);
-
-      console.log(
-        `Selected period: Year ${selectedYearNum}, Month ${selectedMonthNum}, Week ${selectedWeekNum}`
-      );
 
       let firstDayOfWeek: number;
       let lastDayOfWeek: number;
@@ -409,8 +385,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
         selectedMonthNum,
         0
       ).getDate();
-
-      console.log(`Days in month: ${daysInMonth}`);
 
       // Set date range based on selected week
       switch (selectedWeekNum) {
@@ -454,17 +428,11 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
       // Make sure the lastDayOfWeek doesn't exceed the days in the month
       lastDayOfWeek = Math.min(lastDayOfWeek, daysInMonth);
 
-      console.log(
-        `Date range for weekly view: ${firstDayOfWeek} to ${lastDayOfWeek}`
-      );
-
       // Initialize result with days in the selected week
       const result = {};
       for (let i = firstDayOfWeek; i <= lastDayOfWeek; i++) {
         result[i.toString()] = { income: 0, outcome: 0 };
       }
-
-      console.log(`Initialized days for result:`, Object.keys(result));
 
       // If no transactions, return the empty structure
       if (
@@ -472,22 +440,13 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
         !Array.isArray(transactions) ||
         transactions.length === 0
       ) {
-        console.log("No transactions to process");
         return result;
       }
 
-      // Count how many transactions we process vs skip
-      let processedCount = 0;
-      let skippedCount = 0;
-      let invalidDateCount = 0;
-      let dayOutOfRangeCount = 0;
-
       // Process each transaction
-      transactions.forEach((transaction, index) => {
+      transactions.forEach((transaction) => {
         try {
           if (!transaction || !transaction.transactionDate) {
-            console.log(`[${index}] Invalid transaction data:`, transaction);
-            skippedCount++;
             return;
           }
 
@@ -495,11 +454,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
           // Check if date is valid
           if (isNaN(date.getTime())) {
-            console.log(
-              `[${index}] Invalid date:`,
-              transaction.transactionDate
-            );
-            invalidDateCount++;
             return;
           }
 
@@ -513,80 +467,43 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
             transactionMonth !== selectedMonthNum ||
             transactionYear !== selectedYearNum
           ) {
-            console.log(
-              `[${index}] Transaction from different month/year: ${transactionMonth}/${transactionYear} (expected ${selectedMonthNum}/${selectedYearNum})`
-            );
-            skippedCount++;
             return;
           }
 
           // Skip if the day is not in our result object (not in selected week)
           if (!result[day]) {
-            console.log(
-              `[${index}] Transaction on day ${day} outside selected week range (${firstDayOfWeek}-${lastDayOfWeek})`
-            );
-            dayOutOfRangeCount++;
             return;
           }
 
           // Parse amount to ensure it's a number
           const amount = parseFloat(transaction.amount as any) || 0;
 
-          console.log(
-            `[${index}] Processing transaction: Day=${day}, Type=${transaction.transactionType}, Amount=${amount}`
-          );
-
           // Updated logic for transfer handling
           if (transaction.transactionType === "Transfer") {
             // Check if this is an incoming transfer (money received)
             const isIncomingTransfer =
-              userFullname &&
+              authUser?.fullname &&
               transaction.recipient &&
-              transaction.recipient.toLowerCase() ===
-                userFullname.toLowerCase();
+              transaction.recipient.toLowerCase() === authUser.fullname.toLowerCase();
 
             if (isIncomingTransfer) {
               // Incoming transfer - count as income
               result[day].income += amount;
-              console.log(
-                `[${index}] Added ${amount} to income for day ${day} (incoming transfer)`
-              );
             } else {
               // Outgoing transfer - count as outcome
               result[day].outcome += amount;
-              console.log(
-                `[${index}] Added ${amount} to outcome for day ${day} (outgoing transfer)`
-              );
             }
           } else if (transaction.transactionType === "Top Up") {
             // Top Up is always income
             result[day].income += amount;
-            console.log(
-              `[${index}] Added ${amount} to income for day ${day} (top up)`
-            );
           } else {
             // All other transaction types count as outcome
             result[day].outcome += amount;
-            console.log(
-              `[${index}] Added ${amount} to outcome for day ${day} (${transaction.transactionType})`
-            );
           }
-
-          processedCount++;
         } catch (error) {
-          console.error(
-            `[${index}] Error processing daily transaction:`,
-            error,
-            transaction
-          );
-          skippedCount++;
+          // Silent error handling
         }
       });
-
-      console.log(
-        `Aggregation complete. Processed: ${processedCount}, Skipped: ${skippedCount} (Invalid dates: ${invalidDateCount}, Day out of range: ${dayOutOfRangeCount})`
-      );
-      console.log("Final aggregated data:", result);
 
       return result;
     };
@@ -612,7 +529,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
       transactions.forEach((transaction) => {
         try {
           if (!transaction || !transaction.transactionDate) {
-            console.log("Invalid transaction data:", transaction);
             return;
           }
 
@@ -620,7 +536,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
           // Check if date is valid
           if (isNaN(date.getTime())) {
-            console.log("Invalid date:", transaction.transactionDate);
             return;
           }
 
@@ -640,10 +555,9 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           if (transaction.transactionType === "Transfer") {
             // Check if this is an incoming transfer (money received)
             const isIncomingTransfer =
-              userFullname &&
+              authUser?.fullname &&
               transaction.recipient &&
-              transaction.recipient.toLowerCase() ===
-                userFullname.toLowerCase();
+              transaction.recipient.toLowerCase() === authUser.fullname.toLowerCase();
 
             if (isIncomingTransfer) {
               // Incoming transfer - count as income
@@ -660,11 +574,7 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
             result[weekKey].outcome += amount;
           }
         } catch (error) {
-          console.error(
-            "Error processing weekly transaction:",
-            error,
-            transaction
-          );
+          // Silent error handling
         }
       });
 
@@ -706,7 +616,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
       transactions.forEach((transaction) => {
         try {
           if (!transaction || !transaction.transactionDate) {
-            console.log("Invalid transaction data:", transaction);
             return;
           }
 
@@ -714,13 +623,11 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
           // Check if date is valid
           if (isNaN(date.getTime())) {
-            console.log("Invalid date:", transaction.transactionDate);
             return;
           }
 
           const monthIndex = date.getMonth();
           if (monthIndex < 0 || monthIndex >= 12) {
-            console.log("Invalid month index:", monthIndex);
             return;
           }
 
@@ -738,10 +645,9 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           if (transaction.transactionType === "Transfer") {
             // Check if this is an incoming transfer (money received)
             const isIncomingTransfer =
-              userFullname &&
+              authUser?.fullname &&
               transaction.recipient &&
-              transaction.recipient.toLowerCase() ===
-                userFullname.toLowerCase();
+              transaction.recipient.toLowerCase() === authUser.fullname.toLowerCase();
 
             if (isIncomingTransfer) {
               // Incoming transfer - count as income
@@ -758,11 +664,7 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
             result[monthName].outcome += amount;
           }
         } catch (error) {
-          console.error(
-            "Error processing monthly transaction:",
-            error,
-            transaction
-          );
+          // Silent error handling
         }
       });
 
@@ -790,7 +692,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
       transactions.forEach((transaction) => {
         try {
           if (!transaction || !transaction.transactionDate) {
-            console.log("Invalid transaction data:", transaction);
             return;
           }
 
@@ -798,7 +699,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
 
           // Check if date is valid
           if (isNaN(date.getTime())) {
-            console.log("Invalid date:", transaction.transactionDate);
             return;
           }
 
@@ -828,10 +728,9 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           if (transaction.transactionType === "Transfer") {
             // Check if this is an incoming transfer (money received)
             const isIncomingTransfer =
-              userFullname &&
+              authUser?.fullname &&
               transaction.recipient &&
-              transaction.recipient.toLowerCase() ===
-                userFullname.toLowerCase();
+              transaction.recipient.toLowerCase() === authUser.fullname.toLowerCase();
 
             if (isIncomingTransfer) {
               // Incoming transfer - count as income
@@ -848,11 +747,7 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
             result[quarter].outcome += amount;
           }
         } catch (error) {
-          console.error(
-            "Error processing quarterly transaction:",
-            error,
-            transaction
-          );
+          // Silent error handling
         }
       });
 
@@ -883,10 +778,9 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
         }
         return {};
       } catch (error) {
-        console.error("Error in data aggregation:", error);
         return {};
       }
-    }, [transactions, selectedType, week, month, year, userFullname]); // Added userFullname as dependency
+    }, [transactions, selectedType, week, month, year, authUser?.fullname]);
 
     // Prepare chart data
     const chartData = useMemo(() => {
@@ -957,7 +851,6 @@ const FinancialChart = forwardRef<ChartRefType, ChartProps>(
           yAxisLabels,
         };
       } catch (error) {
-        console.error("Error preparing chart data:", error);
         return {
           barData: [],
           maxValue: 10000,
